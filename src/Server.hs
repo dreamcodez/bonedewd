@@ -1,16 +1,18 @@
 module Server where
-import Control.Applicative
+import Control.Applicative ((<$>))
 import Control.Exception
 import Control.Monad
+import qualified Data.ByteString.Char8 as B
 import Data.Char
-import qualified Network
-import Network.Socket
+import Network (PortID(..), listenOn)
+import Network.Socket (Socket, accept, sClose)
+import Network.Socket.ByteString
 import Text.Hexdump
 
 
 main =
     bracket
-        (Network.listenOn (Network.PortNumber 2593))
+        (listenOn (PortNumber 2593))
         sClose
         (forever . accept')
 		
@@ -18,21 +20,29 @@ accept' service = bracket (fst <$> accept service) sClose handlePeer
 
 handlePeer :: Socket -> IO ()
 handlePeer peer = do
-  (_,4) <- recvLen peer 4 -- throw away first 4 bytes its junk
-  (dta,62) <- recvLen peer 62
+  recvExactly peer 4 -- throw away first 4 bytes its junk
+  dta <- recvExactly peer 62
   logHex "IB: localhost" dta
   logHex "OB: localhost" denied
   2 <- send peer denied
   return ()
 
-fmtHex :: String -> String -> String
+fmtHex :: String -> B.ByteString -> String
 fmtHex title dta =
   title ++ "\n" ++
   "-----------------------------------------------------------------------------\n" ++
-  (hexdump 0 dta) ++ "\n"
+  hexdump 0 (B.unpack dta) ++ "\n"
 
-logHex :: String -> String -> IO ()
+logHex :: String -> B.ByteString -> IO ()
 logHex title dta = putStrLn (fmtHex title dta)
 
-denied = [chr 0x82, chr 0x4]
+denied = B.pack [chr 0x82, chr 0x4]
+
+recvExactly :: Socket -> Int -> IO B.ByteString
+recvExactly peer nbytes
+    | nbytes <= 0 = return B.empty
+	| otherwise = do res <- recv peer nbytes
+	                 if res == B.empty
+		               then error "peer closed"
+			           else B.append res <$> recvExactly peer (nbytes - B.length res)
 

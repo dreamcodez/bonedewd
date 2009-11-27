@@ -2,10 +2,10 @@
 module Util where
 import Control.Applicative ((<$>))
 import Control.Exception
-import qualified Data.ByteString.Char8 as C
+import Data.Binary.Get
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
-
 import Data.Int
 import Network.Socket (Socket)
 import Network.Socket.ByteString
@@ -16,18 +16,13 @@ recvExactly :: Socket -> Int -> IO B.ByteString
 recvExactly peer nbytes
     | nbytes <= 0 = return B.empty
 	| otherwise = do res <- recv peer nbytes
-	                 if res == B.empty
-		               then error "peer closed prematurely"
-			           else B.append res <$> recvExactly peer (nbytes - B.length res)
+	                 B.append res <$> recvExactly peer (nbytes - B.length res)
 
-fmtHex :: String -> C.ByteString -> String
+fmtHex :: String -> BC.ByteString -> String
 fmtHex title dta =
   title ++ "\n" ++
   "-----------------------------------------------------------------------------\n" ++
-  hexdump 0 (C.unpack dta) ++ "\n"
-
-logHex :: String -> B.ByteString -> IO ()
-logHex title dta = appendFile "packet.log" (fmtHex title dta)
+  hexdump 0 (BC.unpack dta) ++ "\n"
 
 lazy2strict :: L.ByteString -> B.ByteString
 lazy2strict lazy = B.concat (L.toChunks lazy)
@@ -42,3 +37,12 @@ truncString str len =
     str' ++ padding
     where str' = (take (len - 1) str) ++ "\0"
           padding = replicate (len - length str') '\0'
+
+-- like getLazyByteStringNul except will consume up to fixed amount (and discard past nul)
+getFixedByteStringNul :: Int -> Get B.ByteString
+getFixedByteStringNul len = do
+    buf <- getByteString len
+    return (B.takeWhile (/= 0) buf)
+
+getFixedStringNul :: Int -> Get String
+getFixedStringNul len = BC.unpack <$> getFixedByteStringNul len

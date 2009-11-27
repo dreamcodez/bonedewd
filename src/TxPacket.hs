@@ -7,6 +7,7 @@ import Data.Binary.Put
 import Debug.Trace
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Char8 as LC
 import Network.Socket (HostAddress)
 import RawPacket
 import Util
@@ -47,23 +48,20 @@ build AccountLoginFailed{..} =
                            CommunicationProblem              -> 0x04
 -- [0xA8] ServerList
 build ServerList{..} =
-    -- logHex "BUILDING Tx Packet" (lazy2strict raw)
-    trace (show raw)
     assert (L.length raw == fromIntegral pLen)   
     RawPacket 0xA8 (lazy2strict raw)
     where numServers = length servers
           pLen = 6 + (numServers * 40)
           rawTop = runPut $ do
-              put (0xA8 :: Word8)        -- packet id
-              put (fromIntegral pLen :: Word16)       -- packet length
-              put (0x00 :: Word8)        -- flags
+              put (0xA8 :: Word8) -- packet id
+              put (fromIntegral pLen :: Word16) -- packet length
+              put (0x00 :: Word8) -- flags
               put (fromIntegral numServers :: Word16) -- server count
           rawServer (ServerListItem{..}, idx) = runPut $ do
-              put (idx :: Word16)                -- server index
+              put (idx :: Word16) -- server index
               mapM put (truncString name 32) -- name of server
-              put (fromIntegral percentFull :: Word8)         -- percentage full
-              put (fromIntegral timeZone :: Word8)            -- timezone
-              put (hostAddress :: Word32) -- host address
+              put (fromIntegral percentFull :: Word8) -- percentage full
+              put (fromIntegral timeZone :: Word8) -- timezone
+              putWord32be hostAddress -- host address
           rawServers = map rawServer (zip servers [0..])
-         -- raw = rawTop -- `L.append` L.concat rawServers
           raw = L.concat (rawTop : rawServers)

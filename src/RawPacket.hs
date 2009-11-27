@@ -9,6 +9,7 @@ import Data.Word
 import Network (Socket)
 import Network.Socket.ByteString
 import Util
+import System.Log.Logger
 
 data RawPacket =
     RawPacket {
@@ -25,19 +26,21 @@ recvPacket peer = do
     let pid = runGet (get :: Get Word8) (strict2lazy beg)
     end <- recvPacket' pid peer
     let pkt = RawPacket pid (beg `B.append` end)
-    logHex "RECEIVED" (pktRaw pkt)
+    debugM "RawPacket" $ fmtHex "RECEIVED" (pktRaw pkt)
     return pkt
 
 -- recvPacket' handles obtaining the correct packet length
 recvPacket' :: Word8 -> Socket -> IO B.ByteString
--- 0x80 is 62 bytes long
+-- [0x80] 62 bytes long
 recvPacket' 0x80 peer = recvExactly peer 61
+-- [0x80] 3 bytes long
+recvPacket' 0xA0 peer = recvExactly peer 2
 recvPacket' pid  _ = error ("unknown packet " ++ show pid)
 
 sendPacket :: Socket -> RawPacket -> IO ()
 sendPacket peer pkt = do
     send peer (pktRaw pkt)
-    logHex "SENT" (pktRaw pkt)
+    debugM "RawPacket" $ fmtHex "SENT" (pktRaw pkt)
 
 accountLoginDenied :: RawPacket
 accountLoginDenied = RawPacket 0x82 (B.pack [0x82 :: Word8, 0x04 :: Word8])

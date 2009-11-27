@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
 module RawPacket where
 import Control.Applicative ((<$>))
+import Compression
 import qualified Data.ByteString as B
 import Data.Binary
 import Data.Binary.Get
@@ -39,8 +40,13 @@ recvPacket' pid  _ = error ("unknown packet " ++ show pid)
 
 sendPacket :: Socket -> RawPacket -> IO ()
 sendPacket peer pkt = do
-    send peer (pktRaw pkt)
+    sendAll peer (pktRaw pkt)
     debugM "RawPacket" $ fmtHex "SENT" (pktRaw pkt)
 
+sendCompressedPacket :: Socket -> RawPacket -> IO ()
+sendCompressedPacket peer pkt = do
+    sendAll peer (compress (pktRaw pkt))
+    debugM "RawPacket" $ fmtHex "SENT COMPRESSED" (pktRaw pkt)
+    
 accountLoginDenied :: RawPacket
 accountLoginDenied = RawPacket 0x82 (B.pack [0x82 :: Word8, 0x04 :: Word8])

@@ -13,10 +13,15 @@ import RawPacket
 import Util
 
 data TxPacket
-    = AccountLoginFailed
-        { reason :: AccountLoginFailReason }
-    | ServerList
+    = ServerList
         { servers :: [ServerListItem] }
+    | ServerRedirect
+        { redirectHostAddress :: HostAddress,
+          redirectHostPort :: Int,
+          encryptionKey :: Int }
+    | AccountLoginFailed
+        { reason :: AccountLoginFailReason }
+
     deriving Show
         
 data AccountLoginFailReason
@@ -32,12 +37,12 @@ data ServerListItem
         { name :: String,
           percentFull :: Int,
           timeZone :: Int,
-          hostAddress :: HostAddress
+          serverListHostAddress :: HostAddress
         }
     deriving Show
 
 build :: TxPacket -> RawPacket
--- [0x82] AccountLoginFailed
+-- [0x82] AccountLoginFailed - 2 bytes long
 build AccountLoginFailed{..} =
     RawPacket 0x82 (B.pack [0x82, reasonCode])
     where reasonCode = case reason of
@@ -46,7 +51,16 @@ build AccountLoginFailed{..} =
                            YourAccountHasBeenBlocked         -> 0x02
                            YourAccountCredentialsAreInvalid  -> 0x03
                            CommunicationProblem              -> 0x04
--- [0xA8] ServerList
+-- [0x8C] ServerRedirect - 11 bytes long
+build ServerRedirect{..} =
+    assert (L.length raw == 11)   
+    RawPacket 0x8C (lazy2strict raw)
+    where raw = runPut $ do
+              put (0x8C :: Word8) -- packet id
+              putWord32be redirectHostAddress -- host address
+              put (fromIntegral redirectHostPort :: Word16) -- host port
+              put (fromIntegral encryptionKey :: Word32) -- encryption key
+-- [0xA8] ServerList - dynamic length
 build ServerList{..} =
     assert (L.length raw == fromIntegral pLen)   
     RawPacket 0xA8 (lazy2strict raw)
@@ -62,6 +76,6 @@ build ServerList{..} =
               mapM put (truncString name 32) -- name of server
               put (fromIntegral percentFull :: Word8) -- percentage full
               put (fromIntegral timeZone :: Word8) -- timezone
-              putWord32be hostAddress -- host address
+              putWord32be serverListHostAddress -- host address
           rawServers = map rawServer (zip servers [0..])
           raw = L.concat (rawTop : rawServers)

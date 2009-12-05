@@ -70,8 +70,11 @@ handleRx peer Rx.ServerSelect{..} = do
     sendPacket AccountLoginState peer (Tx.ServerRedirect localhost 3593 0)
 handleRx peer Rx.GameLoginRequest{..} = do
     sendPacket GameLoginState peer (Tx.CharacterList chars cities)
-    where chars = [Tx.CharacterListItem "Fatty Bobo" "pass"]
+    where chars = [Tx.CharacterListItem "Fatty Bobo" ""]
           cities = [Tx.StartingCity "Britain" "Da Ghetto"]
+handleRx peer Rx.CharacterLoginRequest{..} = do
+    sendPacket GameLoginState peer (Tx.LoginConfirm m 6144 4096)
+    where m = Mobile 12345 0x192 1477 1638 50 (MobDirection Down Running)
 handleRx _ _ = return ()
 
 serverList :: Tx.TxPacket

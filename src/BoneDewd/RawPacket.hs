@@ -8,7 +8,7 @@ import Data.Binary.Strict.Get
 import Data.Word
 import Network (Socket)
 import Network.Socket.ByteString
-import BoneDewd.Types
+import BoneDewd.Types hiding (Right)
 import BoneDewd.Util
 import System.Log.Logger
     
@@ -23,6 +23,10 @@ recvRawPacket _ peer = do
     return (RawPacket raw)
 
 recvAppPacket :: Word8 -> Socket -> IO B.ByteString
+-- [0x34] 10 bytes long
+recvAppPacket 0x34 peer = recvExactly peer 9
+-- [0x5D] 73 bytes long
+recvAppPacket 0x5D peer = recvExactly peer 72
 -- [0x73] 2 bytes long
 recvAppPacket 0x73 peer = recvExactly peer 1
 -- [0x80] 62 bytes long
@@ -31,6 +35,12 @@ recvAppPacket 0x80 peer = recvExactly peer 61
 recvAppPacket 0x91 peer = recvExactly peer 64
 -- [0xA0] 3 bytes long
 recvAppPacket 0xA0 peer = recvExactly peer 2
+-- [0XBD] dynamic length
+recvAppPacket 0xBD peer = do
+    beg <- recvExactly peer 2
+    let (Right plen,_) = runGet getWord16be beg
+    end <- recvExactly peer (fromIntegral $ plen - 3)
+    return (beg `B.append` end)
 -- [0xEF] 21 bytes long
 recvAppPacket 0xEF peer = recvExactly peer 20
 recvAppPacket pid  _ = error ("received unknown app packet " ++ show pid)

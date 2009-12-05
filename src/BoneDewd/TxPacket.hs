@@ -4,6 +4,7 @@ module BoneDewd.TxPacket where
 import Control.Exception
 import Data.Binary
 import Data.Binary.Put
+import Data.Int
 import Debug.Trace
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
@@ -26,6 +27,11 @@ data TxPacket
           encryptionKey :: Int }
     | AccountLoginFailed
         { reason :: AccountLoginFailReason }
+    | LoginConfirm
+        { loginMobile :: Mobile,
+          mapWidth :: Word16,
+          mapHeight :: Word16
+        }
     deriving Show
         
 data AccountLoginFailReason
@@ -60,6 +66,27 @@ data StartingCity
     deriving Show
 
 build :: TxPacket -> RawPacket
+-- [0x1B] LoginConfirm - 37 bytes long
+build LoginConfirm{..} =
+    assert (L.length raw == fromIntegral pLen)
+    RawPacket (lazy2strict raw)
+    where pLen = 37
+          raw = runPut $ do
+              put (0x1B :: Word8) -- packet id
+              put (mobSerial loginMobile :: Word32) -- serial # of mob
+              put (0x00 :: Word32) -- unknown, always 0
+              put (mobBody loginMobile :: Word16)
+              put (mobX loginMobile :: Int16)
+              put (mobY loginMobile :: Int16)
+              put (mobZ loginMobile :: Int16)
+              put (fromIntegral (fromEnum (mobDirection loginMobile)) :: Word8)
+              put (0x00 :: Word32) -- unknown, always 0
+              put (0x00 :: Word32) -- unknown, always 0
+              put (0x00 :: Word8) -- unknown, always 0
+              put (mapWidth :: Word16) -- map width minus 8
+              put (mapHeight :: Word16) -- map height
+              put (0x00 :: Word16) -- unknown, always 0
+              put (0x00 :: Word32) -- unknown, always 0
 -- [0x82] AccountLoginFailed - 2 bytes long
 build AccountLoginFailed{..} =
     RawPacket (B.pack [0x82, reasonCode])

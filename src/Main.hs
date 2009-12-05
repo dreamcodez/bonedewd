@@ -50,8 +50,10 @@ handlePeer :: Socket -> IO ()
 handlePeer peer =
     work `finally` sClose peer
     where work = do
-              forever $ do rx <- recvPacket AccountLoginState peer
-                           handleRx peer rx    
+              forever $ do res <- recvPacket AccountLoginState peer
+                           case res of
+                               Just rx -> handleRx peer rx
+                               Nothing -> return ()
 
 -- for game server
 handlePeer' :: Socket -> IO ()
@@ -59,8 +61,10 @@ handlePeer' peer =
     work `finally` sClose peer
     where work = do
               recvPacket PreGameLoginState peer -- after first packet we are no longer pre-game
-              forever $ do rx <- recvPacket GameLoginState peer
-                           handleRx peer rx                              
+              forever $ do res <- recvPacket GameLoginState peer
+                           case res of
+                               Just rx -> handleRx peer rx
+                               Nothing -> return ()                            
 
 handleRx :: Socket -> Rx.RxPacket -> IO ()
 handleRx peer Rx.AccountLoginRequest{..} = do
@@ -73,15 +77,17 @@ handleRx peer Rx.GameLoginRequest{..} = do
     where chars = [Tx.CharacterListItem "Fatty Bobo" ""]
           cities = [Tx.StartingCity "Britain" "Da Ghetto"]
 handleRx peer Rx.CharacterLoginRequest{..} = do
-    sendPacket GameLoginState peer (Tx.LoginConfirm m 6144 4096)
-    sendPacket GameLoginState peer (Tx.DrawPlayer m)
-    sendPacket GameLoginState peer (Tx.DrawPlayer m)
-    where m = Mobile 12345 0x192 255 1477 1638 50 (MobDirection Down Running)
+    sendPacket GameLoginState peer (Tx.LoginConfirm me 6144 4096)
+    -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
+    -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
 handleRx peer (Rx.ClientLanguage _) = do
-    sendPacket GameLoginState peer (Tx.DrawPlayer m)
-    sendPacket GameLoginState peer (Tx.DrawPlayer m)
-    where m = Mobile 12345 0x192 255 1477 1638 50 (MobDirection Down Running)
+    -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
+    -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
+    sendPacket GameLoginState peer (Tx.DrawMobile me)
+    sendPacket GameLoginState peer (Tx.DrawMobile me)
 handleRx _ _ = return ()
+me :: Mobile
+me = Mobile 12345 0x192 255 1477 1638 50 (MobDirection DirDown Running) (MobStatus True False False False) Innocent []
 
 serverList :: Tx.TxPacket
 serverList =

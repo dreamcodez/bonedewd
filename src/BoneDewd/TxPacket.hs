@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module BoneDewd.TxPacket where
 import Control.Exception
+import Control.Monad
 import Data.Binary
 import Data.Binary.Put
 import Data.Int
@@ -20,6 +21,7 @@ data TxPacket
         { characters :: [CharacterListItem],
           cities :: [StartingCity] }
     | DrawPlayer Mobile
+    | DrawMobile Mobile
     | ServerList
         { servers :: [ServerListItem] }
     | ServerRedirect
@@ -107,6 +109,29 @@ build (DrawPlayer m) =
               put (0x00 :: Word16) -- unknown, always 0
               put (fromIntegral (fromEnum (mobDirection m)) :: Word8)
               put (mobZ m :: Int8)
+-- [0x78] DrawMobile - dynamic length
+build (DrawMobile Mobile{..}) =
+    assert (L.length raw == fromIntegral pLen)
+    RawPacket (lazy2strict raw)
+    where pLen = 23 + (length mobEquipment) * 9
+          raw = runPut $ do
+              put (0x78 :: Word8) -- packet id
+              put (fromIntegral pLen :: Word16) -- length
+              put (mobSerial :: Word32) -- serial # of mob
+              put (mobBody :: Word16)
+              put (mobX :: Int16)
+              put (mobY :: Int16)
+              put (mobZ :: Int8)
+              put (fromIntegral (fromEnum mobDirection) :: Word8)
+              put (mobHue :: Word16) -- hue
+              put (fromIntegral (fromEnum mobStatus) :: Word8)
+              put (fromIntegral (fromEnum mobNotoriety) :: Word8)
+              forM_ mobEquipment $ \MobEquipmentItem{..} -> do
+                  put (equipSerial :: Word32)
+                  put (equipGraphic :: Word16)
+                  put (equipLayer :: Word8)
+                  put (equipHue :: Word16)
+              put (0x00 :: Word32) -- end marker
 -- [0x82] AccountLoginFailed - 2 bytes long
 build AccountLoginFailed{..} =
     RawPacket (B.pack [0x82, reasonCode])

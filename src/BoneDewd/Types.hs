@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 module BoneDewd.Types where
 import Prelude hiding (Either(..))
 import BoneDewd.Util
@@ -7,25 +8,25 @@ import Data.Int
 import Data.Word
 
 data Direction
-    = North
-    | Right
-    | East
-    | Down
-    | South
-    | Left
-    | West
-    | Up
+    = DirNorth
+    | DirRight
+    | DirEast
+    | DirDown
+    | DirSouth
+    | DirLeft
+    | DirWest
+    | DirUp
     deriving Show
 
 instance Enum Direction where
-    fromEnum North = 0x00
-    fromEnum Right = 0x01
-    fromEnum East  = 0x02
-    fromEnum Down  = 0x03
-    fromEnum South = 0x04
-    fromEnum Left  = 0x05
-    fromEnum West  = 0x06
-    fromEnum Up    = 0x07
+    fromEnum DirNorth = 0x00
+    fromEnum DirRight = 0x01
+    fromEnum DirEast  = 0x02
+    fromEnum DirDown  = 0x03
+    fromEnum DirSouth = 0x04
+    fromEnum DirLeft  = 0x05
+    fromEnum DirWest  = 0x06
+    fromEnum DirUp    = 0x07
     
 data MobDirection
     = MobDirection Direction RunningOrWalking
@@ -43,6 +44,53 @@ instance Enum RunningOrWalking where
     fromEnum Running = 0x80
     fromEnum Walking = 0x00
 
+data MobStatus
+    = MobStatus
+        { mobCanAlterPaperDoll :: Bool,
+          mobPoisoned :: Bool,
+          mobGoldHealth :: Bool,
+          mobWarMode :: Bool }
+    deriving Show
+
+instance Enum MobStatus where
+    fromEnum MobStatus{..} =
+        a .|. b .|. c .|. d
+        where a | mobCanAlterPaperDoll = 0x02
+                | otherwise            = 0x00
+              b | mobPoisoned          = 0x04
+                | otherwise            = 0x00
+              c | mobGoldHealth        = 0x08
+                | otherwise            = 0x00
+              d | mobWarMode           = 0x40
+                | otherwise            = 0x00
+
+data MobNotoriety
+    = Innocent -- Blue
+    | Friend -- Green
+    | Animal -- Grey
+    | Criminal -- Grey
+    | Enemy -- Orange
+    | Murderer -- Red
+    | Invulnerable -- Yellow
+    deriving Show
+
+instance Enum MobNotoriety where
+    fromEnum Innocent     = 0x01
+    fromEnum Friend       = 0x02
+    fromEnum Animal       = 0x03
+    fromEnum Criminal     = 0x04
+    fromEnum Enemy        = 0x05
+    fromEnum Murderer     = 0x06
+    fromEnum Invulnerable = 0x07
+
+data MobEquipmentItem
+    = MobEquipmentItem
+        { equipSerial :: Word32,
+          equipGraphic :: Word16,
+          equipLayer :: Word8,
+          equipHue :: Word16 }
+    deriving Show
+
 data Mobile
     = Mobile
         { mobSerial :: Word32,
@@ -51,7 +99,10 @@ data Mobile
           mobX :: Int16,
           mobY :: Int16,
           mobZ :: Int8,
-          mobDirection :: MobDirection
+          mobDirection :: MobDirection,
+          mobStatus :: MobStatus,
+          mobNotoriety :: MobNotoriety,
+          mobEquipment :: [MobEquipmentItem]
         }
     deriving Show
 

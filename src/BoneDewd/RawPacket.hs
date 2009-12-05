@@ -8,7 +8,7 @@ import Data.Binary.Strict.Get
 import Data.Word
 import Network (Socket)
 import Network.Socket.ByteString
-import BoneDewd.Types hiding (Right)
+import BoneDewd.Types
 import BoneDewd.Util
 import System.Log.Logger
     

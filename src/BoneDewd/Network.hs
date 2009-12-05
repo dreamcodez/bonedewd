@@ -7,11 +7,16 @@ import Control.Applicative ((<$>))
 import Network (Socket)
 import System.Log.Logger
 
-recvPacket :: SessionState -> Socket -> IO RxPacket
+recvPacket :: SessionState -> Socket -> IO (Maybe RxPacket)
 recvPacket state peer = do
-    rx <- parse state <$> recvRawPacket state peer
-    debugM "RxPacket" ("\n" ++ show rx)
-    return rx
+    res <- parse state <$> recvRawPacket state peer
+    case res of
+        Right rx -> do
+            debugM "RxPacket" ("\n" ++ show rx)
+            return (Just rx)
+        Left err -> do
+            debugM "RxPacket" err
+            return Nothing
 
 sendPacket :: SessionState -> Socket -> TxPacket -> IO ()
 sendPacket state peer tx = do

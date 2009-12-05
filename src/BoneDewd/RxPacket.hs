@@ -10,6 +10,7 @@ import Data.Word
 import BoneDewd.RawPacket
 import BoneDewd.Types
 import BoneDewd.Util
+import Text.Printf
 
 data RxPacket
     = ServerSelect Int
@@ -44,14 +45,14 @@ data RxPacket
     | ScreenSize Word16 Word16
     deriving Show
 
-parse :: SessionState -> RawPacket -> RxPacket
+parse :: SessionState -> RawPacket -> Either String RxPacket
 parse PreGameLoginState (RawPacket raw) =
-    ClientAuthKey (runGet getWord32be (strict2lazy raw))
+    Right $ ClientAuthKey (runGet getWord32be (strict2lazy raw))
 parse _ (RawPacket raw) =
     parseApp pid raw
     where pid = runGet getWord8 (strict2lazy raw)
     
-parseApp :: Word8 -> B.ByteString -> RxPacket
+parseApp :: Word8 -> B.ByteString -> Either String RxPacket
 -- [0x34] GetPlayerStatus
 parseApp 0x34 raw =
     runGet getter (strict2lazy raw)
@@ -59,7 +60,7 @@ parseApp 0x34 raw =
               skip 5
               t <- getWord8 -- type
               s <- getWord32be
-              return $ GetPlayerStatus t s
+              return $ Right (GetPlayerStatus t s)
 -- [0x5D] CharacterLoginRequest
 parseApp 0x5D raw =
     runGet getter (strict2lazy raw)
@@ -73,7 +74,7 @@ parseApp 0x5D raw =
               skip 16
               s <- getWord32be
               i <- getWord32be
-              return $ CharacterLoginRequest n f c s i
+              return $ Right (CharacterLoginRequest n f c s i)
 -- [0x80] AccountLoginRequest
 parseApp 0x80 raw =
     runGet getter (strict2lazy raw)
@@ -81,7 +82,7 @@ parseApp 0x80 raw =
               skip 1
               u <- getFixedStringNul 30 -- user
               p <- getFixedStringNul 30 -- password
-              return (AccountLoginRequest u p)
+              return $ Right (AccountLoginRequest u p)
 -- [0x91] GameLoginRequest
 parseApp 0x91 raw =
     runGet getter (strict2lazy raw)
@@ -90,14 +91,14 @@ parseApp 0x91 raw =
               k <- getWord32be -- key used
               u <- getFixedStringNul 30 -- user
               p <- getFixedStringNul 30 -- password
-              return (GameLoginRequest k u p)
+              return $ Right (GameLoginRequest k u p)
 -- [0xA0] ServerSelect
 parseApp 0xA0 raw =
     runGet getter (strict2lazy raw)
     where getter = do
               skip 1
               i <- getWord8 -- index of server that was selected   
-              return (ServerSelect (fromIntegral i))
+              return $ Right (ServerSelect (fromIntegral i))
 -- [0xBD] ClientVersion
 parseApp 0xBD raw = 
     runGet getter (strict2lazy raw)
@@ -105,7 +106,7 @@ parseApp 0xBD raw =
           getter = do
               skip 3
               s <- getFixedStringNul (plen - 3) -- version string
-              return (ClientVersion s)
+              return $ Right (ClientVersion s)
 -- [0xBF]
 parseApp 0xBF raw = 
     runGet getter (strict2lazy raw)
@@ -118,15 +119,15 @@ parseApp 0xBF raw =
                       skip 2
                       x <- getWord16be
                       y <- getWord16be
-                      return (ScreenSize x y)
+                      return $ Right (ScreenSize x y)
                   0x0B -> do
                       l <- getFixedString 3
-                      return (ClientLanguage l)
+                      return $ Right (ClientLanguage l)
                   0x0F -> do
                       cid <- getWord32be
                       eid <- getWord8 -- i think this is right, penultima says word16 tho..
-                      return (PopupEntrySelection cid eid)
-                  _ -> error ("don't know how to parse subcommand of 0xBF: " ++ show subcmd)
+                      return $ Right (PopupEntrySelection cid eid)
+                  _ -> return $ Left ("don't know how to parse subcommand of 0xBF: " ++ printf "%02x" subcmd)
 -- [0xEF] ClientLoginSeed
 parseApp 0xEF raw =
     runGet getter (strict2lazy raw)
@@ -137,5 +138,5 @@ parseApp 0xEF raw =
               verB <- getWord32be
               verC <- getWord32be
               verD <- getWord32be
-              return (ClientLoginSeed seed verA verB verC verD)
-parseApp pid raw = error ("don't know how to parse packet: " ++ show pid ++ "\n" ++ fmtHex raw)
+              return $ Right (ClientLoginSeed seed verA verB verC verD)
+parseApp pid raw = Left ("don't know how to parse packet: " ++ printf "0x%02x" pid)

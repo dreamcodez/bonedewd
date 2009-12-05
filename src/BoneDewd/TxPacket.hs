@@ -10,6 +10,7 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as LC
 import Network.Socket (HostAddress)
 import BoneDewd.RawPacket
+import BoneDewd.Types
 import BoneDewd.Util
 
 data TxPacket
@@ -21,7 +22,6 @@ data TxPacket
           encryptionKey :: Int }
     | AccountLoginFailed
         { reason :: AccountLoginFailReason }
-
     deriving Show
         
 data AccountLoginFailReason
@@ -44,7 +44,7 @@ data ServerListItem
 build :: TxPacket -> RawPacket
 -- [0x82] AccountLoginFailed - 2 bytes long
 build AccountLoginFailed{..} =
-    RawPacket 0x82 (B.pack [0x82, reasonCode])
+    RawPacket (B.pack [0x82, reasonCode])
     where reasonCode = case reason of
                            IncorrectNameOrPassword           -> 0x00
                            SomeoneIsAlreadyUsingAccount      -> 0x01
@@ -54,22 +54,23 @@ build AccountLoginFailed{..} =
 -- [0x8C] ServerRedirect - 11 bytes long
 build ServerRedirect{..} =
     assert (L.length raw == 11)   
-    RawPacket 0x8C (lazy2strict raw)
+    RawPacket (lazy2strict raw)
     where raw = runPut $ do
               put (0x8C :: Word8) -- packet id
-              putWord32be redirectHostAddress -- host address
-              put (fromIntegral redirectHostPort :: Word16) -- host port
+              putWord32le redirectHostAddress -- host address
+              putWord16be (fromIntegral redirectHostPort)
+              --put (fromIntegral redirectHostPort :: Word16) -- host port
               put (fromIntegral encryptionKey :: Word32) -- encryption key
 -- [0xA8] ServerList - dynamic length
 build ServerList{..} =
     assert (L.length raw == fromIntegral pLen)   
-    RawPacket 0xA8 (lazy2strict raw)
+    RawPacket (lazy2strict raw)
     where numServers = length servers
           pLen = 6 + (numServers * 40)
           rawTop = runPut $ do
               put (0xA8 :: Word8) -- packet id
               put (fromIntegral pLen :: Word16) -- packet length
-              put (0x00 :: Word8) -- flags
+              put (0x5D :: Word8) -- flags, 0x5D is what RunUO sends
               put (fromIntegral numServers :: Word16) -- server count
           rawServer (ServerListItem{..}, idx) = runPut $ do
               put (idx :: Word16) -- server index

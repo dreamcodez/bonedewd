@@ -18,11 +18,8 @@ recvExactly peer nbytes
 	| otherwise = do res <- recv peer nbytes
 	                 B.append res <$> recvExactly peer (nbytes - B.length res)
 
-fmtHex :: String -> BC.ByteString -> String
-fmtHex title dta =
-  title ++ "\n" ++
-  "-----------------------------------------------------------------------------\n" ++
-  hexdump 0 (BC.unpack dta) ++ "\n"
+fmtHex :: BC.ByteString -> String
+fmtHex dta = hexdump 0 (BC.unpack dta)
 
 lazy2strict :: L.ByteString -> B.ByteString
 lazy2strict lazy = B.concat (L.toChunks lazy)

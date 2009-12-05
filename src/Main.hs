@@ -4,6 +4,7 @@ module Main where
 import BoneDewd.Network
 import qualified BoneDewd.RxPacket as Rx
 import qualified BoneDewd.TxPacket as Tx
+import BoneDewd.Types
 import BoneDewd.Util
 import Control.Applicative ((<$>))
 import Control.Concurrent
@@ -23,7 +24,7 @@ import System.Log.Handler.Simple
 main :: IO ()
 main = do
     setupLogging
-    forkIO loginServer
+    forkIO $ loginServer
     gameServer
 
 
@@ -49,22 +50,24 @@ handlePeer :: Socket -> IO ()
 handlePeer peer =
     work `finally` sClose peer
     where work = do
-              forever $ do rx <- recvPacket peer
+              forever $ do rx <- recvPacket AccountLoginState peer
                            handleRx peer rx    
 
+-- for game server
 handlePeer' :: Socket -> IO ()
 handlePeer' peer =
     work `finally` sClose peer
     where work = do
-              forever $ do rx <- recvPacket peer
+              recvPacket PreGameLoginState peer -- after first packet we are no longer pre-game
+              forever $ do rx <- recvPacket GameLoginState peer
                            handleRx peer rx                              
 
 handleRx :: Socket -> Rx.RxPacket -> IO ()
 handleRx peer Rx.AccountLoginRequest{..} = do
-    sendPacket peer serverList
+    sendPacket AccountLoginState peer serverList
     --sendPacket peer (Tx.build (Tx.AccountLoginFailed Tx.CommunicationProblem))
 handleRx peer Rx.ServerSelect{..} = do
-    sendPacket peer (Tx.ServerRedirect localhost 3593 0)
+    sendPacket AccountLoginState peer (Tx.ServerRedirect localhost 3593 0)
 handleRx _ _ = return ()
 
 serverList :: Tx.TxPacket

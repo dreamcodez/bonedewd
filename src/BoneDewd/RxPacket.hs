@@ -2,15 +2,18 @@
 {-# LANGUAGE RecordWildCards, NamedFieldPuns #-}
 module BoneDewd.RxPacket where
 import Control.Applicative ((<$>))
+
 --import Data.Binary
 import Data.Binary.Get
+import qualified Data.ByteString as B
 import Data.Word
 import BoneDewd.RawPacket
+import BoneDewd.Types
 import BoneDewd.Util
 
 data RxPacket
-    = ServerSelect
-        { serverIndex :: Int }
+    = ServerSelect Int
+    | ClientAuthKey Word32
     | ClientLoginSeed
         { seed :: Word32,
           verMajor :: Word32,
@@ -20,27 +23,47 @@ data RxPacket
     | AccountLoginRequest
         { acctUser :: String,
           acctPass :: String }
+    | GameLoginRequest
+        { keyUsed :: Word32,
+          acctUser :: String,
+          acctPass :: String }
     deriving Show
 
-parse :: RawPacket -> RxPacket
+parse :: SessionState -> RawPacket -> RxPacket
+parse PreGameLoginState (RawPacket raw) =
+    ClientAuthKey (runGet getWord32be (strict2lazy raw))
+parse _ (RawPacket raw) =
+    parseApp pid raw
+    where pid = runGet getWord8 (strict2lazy raw)
+    
+parseApp :: Word8 -> B.ByteString -> RxPacket
 -- [0x80] AccountLoginRequest
-parse RawPacket{pktId=0x80,pktRaw} =
-    runGet getter (strict2lazy pktRaw)
+parseApp 0x80 raw =
+    runGet getter (strict2lazy raw)
     where getter = do
               skip 1
               u <- getFixedStringNul 30 -- user
               p <- getFixedStringNul 30 -- password
               return (AccountLoginRequest u p)
+-- [0x91] GameLoginRequest
+parseApp 0x91 raw =
+    runGet getter (strict2lazy raw)
+    where getter = do
+              skip 1
+              k <- getWord32be -- key used
+              u <- getFixedStringNul 30 -- user
+              p <- getFixedStringNul 30 -- password
+              return (GameLoginRequest k u p)
 -- [0xA0] ServerSelect
-parse RawPacket{pktId=0xA0,pktRaw} =
-    runGet getter (strict2lazy pktRaw)
+parseApp 0xA0 raw =
+    runGet getter (strict2lazy raw)
     where getter = do
               skip 1
               i <- getWord8 -- index of server that was selected   
               return (ServerSelect (fromIntegral i))
 -- [0xEF] ClientLoginSeed
-parse RawPacket{pktId=0xEF,pktRaw} =
-    runGet getter (strict2lazy pktRaw)
+parseApp 0xEF raw =
+    runGet getter (strict2lazy raw)
     where getter = do
               skip 1
               seed <- getWord32be
@@ -49,4 +72,4 @@ parse RawPacket{pktId=0xEF,pktRaw} =
               verC <- getWord32be
               verD <- getWord32be
               return (ClientLoginSeed seed verA verB verC verD)
-parse RawPacket{..} = error ("don't know how to parse packet: " ++ show pktId)
+parseApp pid raw = error ("don't know how to parse packet: " ++ show pid ++ "\n" ++ fmtHex raw)

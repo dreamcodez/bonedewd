@@ -3,52 +3,46 @@ module BoneDewd.RawPacket where
 import Control.Applicative ((<$>))
 import BoneDewd.Compression
 import qualified Data.ByteString as B
-import Data.Binary
-import Data.Binary.Get
-import Data.Int
+-- import Data.Binary
+import Data.Binary.Strict.Get
 import Data.Word
 import Network (Socket)
 import Network.Socket.ByteString
+import BoneDewd.Types
 import BoneDewd.Util
 import System.Log.Logger
-
-data RawPacket =
-    RawPacket {
-        pktId        :: Word8,
-        pktRaw       :: B.ByteString
-    }
-
-instance Show RawPacket where
-    show p = fmtHex (show (pktId p)) (pktRaw p)
-
-recvRawPacket :: Socket -> IO RawPacket
-recvRawPacket peer = do
-    beg <- recvExactly peer 1
-    let pid = runGet (get :: Get Word8) (strict2lazy beg)
-    end <- recvRawPacket' pid peer
-    let pkt = RawPacket pid (beg `B.append` end)
-    debugM "RawPacket" $ fmtHex "RECEIVED" (pktRaw pkt)
-    return pkt
-
--- recvPacket' handles obtaining the correct packet length
-recvRawPacket' :: Word8 -> Socket -> IO B.ByteString
--- [0x80] 62 bytes long
-recvRawPacket' 0x80 peer = recvExactly peer 61
--- [0xA0] 3 bytes long
-recvRawPacket' 0xA0 peer = recvExactly peer 2
--- [0xEF] 21 bytes long
-recvRawPacket' 0xEF peer = recvExactly peer 20
-recvRawPacket' pid  _ = error ("unknown packet " ++ show pid)
-
-sendRawPacket :: Socket -> RawPacket -> IO ()
-sendRawPacket peer pkt = do
-    sendAll peer (pktRaw pkt)
-    debugM "RawPacket" $ fmtHex "SENT" (pktRaw pkt)
-
-sendCompressedPacket :: Socket -> RawPacket -> IO ()
-sendCompressedPacket peer pkt = do
-    sendAll peer (compress (pktRaw pkt))
-    debugM "RawPacket" $ fmtHex "SENT COMPRESSED" (pktRaw pkt)
     
-accountLoginDenied :: RawPacket
-accountLoginDenied = RawPacket 0x82 (B.pack [0x82 :: Word8, 0x04 :: Word8])
+recvRawPacket :: SessionState -> Socket -> IO RawPacket
+recvRawPacket PreGameLoginState peer = RawPacket <$> recvExactly peer 4 -- auth id
+recvRawPacket _ peer = do
+    beg <- recvExactly peer 1
+    let (Right pid,_) = runGet getWord8 beg
+    end <- recvAppPacket pid peer
+    let raw = beg `B.append` end
+    debugM "RawPacket" ("RECEIVED\n" ++ fmtHex raw)
+    return (RawPacket raw)
+
+recvAppPacket :: Word8 -> Socket -> IO B.ByteString
+-- [0x80] 62 bytes long
+recvAppPacket 0x80 peer = recvExactly peer 61
+-- [0x91] 65 bytes long
+recvAppPacket 0x91 peer = recvExactly peer 64
+-- [0xA0] 3 bytes long
+recvAppPacket 0xA0 peer = recvExactly peer 2
+-- [0xEF] 21 bytes long
+recvAppPacket 0xEF peer = recvExactly peer 20
+recvAppPacket pid  _ = error ("received unknown app packet " ++ show pid)
+
+sendRawPacket :: SessionState -> Socket -> RawPacket -> IO ()
+sendRawPacket AccountLoginState = sendUncompressedRawPacket
+sendRawPacket _                 = sendCompressedRawPacket
+
+sendUncompressedRawPacket :: Socket -> RawPacket -> IO ()
+sendUncompressedRawPacket peer (RawPacket raw) = do
+    sendAll peer raw
+    debugM "RawPacket" ("SENT\n" ++ fmtHex raw)
+
+sendCompressedRawPacket :: Socket -> RawPacket -> IO ()
+sendCompressedRawPacket peer (RawPacket raw) = do
+    sendAll peer (compress raw)
+    debugM "RawPacket" ("SENT COMPRESSED\n" ++ fmtHex raw)

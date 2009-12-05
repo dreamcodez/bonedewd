@@ -19,6 +19,7 @@ data TxPacket
     | CharacterList
         { characters :: [CharacterListItem],
           cities :: [StartingCity] }
+    | DrawPlayer Mobile
     | ServerList
         { servers :: [ServerListItem] }
     | ServerRedirect
@@ -32,6 +33,7 @@ data TxPacket
           mapWidth :: Word16,
           mapHeight :: Word16
         }
+        
     deriving Show
         
 data AccountLoginFailReason
@@ -78,7 +80,8 @@ build LoginConfirm{..} =
               put (mobBody loginMobile :: Word16)
               put (mobX loginMobile :: Int16)
               put (mobY loginMobile :: Int16)
-              put (mobZ loginMobile :: Int16)
+              put (0x00 :: Word8)
+              put (mobZ loginMobile :: Int8)
               put (fromIntegral (fromEnum (mobDirection loginMobile)) :: Word8)
               put (0x00 :: Word32) -- unknown, always 0
               put (0x00 :: Word32) -- unknown, always 0
@@ -87,6 +90,23 @@ build LoginConfirm{..} =
               put (mapHeight :: Word16) -- map height
               put (0x00 :: Word16) -- unknown, always 0
               put (0x00 :: Word32) -- unknown, always 0
+-- [0x20] DrawPlayer - 19 bytes long
+build (DrawPlayer m) =
+    assert (L.length raw == fromIntegral pLen)
+    RawPacket (lazy2strict raw)
+    where pLen = 19
+          raw = runPut $ do
+              put (0x20 :: Word8) -- packet id
+              put (mobSerial m :: Word32) -- serial # of mob
+              put (mobBody m :: Word16)
+              put (0x00 :: Word8) -- unknown
+              put (mobHue m :: Word16) -- hue
+              put (0x00 :: Word8) -- flag
+              put (mobX m :: Int16)
+              put (mobY m :: Int16)
+              put (0x00 :: Word16) -- unknown, always 0
+              put (fromIntegral (fromEnum (mobDirection m)) :: Word8)
+              put (mobZ m :: Int8)
 -- [0x82] AccountLoginFailed - 2 bytes long
 build AccountLoginFailed{..} =
     RawPacket (B.pack [0x82, reasonCode])

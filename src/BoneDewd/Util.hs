@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
 module BoneDewd.Util where
 import Control.Applicative ((<$>))
+import Control.Concurrent
 import Control.Exception
 import Data.Binary.Get
 import qualified Data.ByteString.Char8 as BC
@@ -41,5 +42,11 @@ getFixedByteStringNul len = do
     buf <- getByteString len
     return (B.takeWhile (/= 0) buf)
 
+getFixedByteString :: Int -> Get B.ByteString
+getFixedByteString = getByteString
+
 getFixedStringNul :: Int -> Get String
 getFixedStringNul len = BC.unpack <$> getFixedByteStringNul len
+
+getFixedString :: Int -> Get String
+getFixedString len = BC.unpack <$> getFixedByteString len

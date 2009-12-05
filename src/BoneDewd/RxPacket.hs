@@ -14,6 +14,7 @@ import BoneDewd.Util
 data RxPacket
     = ServerSelect Int
     | ClientAuthKey Word32
+    | ClientLanguage String
     | ClientLoginSeed
         { seed :: Word32,
           verMajor :: Word32,
@@ -37,6 +38,10 @@ data RxPacket
           charLoginCount :: Word32,
           charSlotChosen :: Word32,
           charClientIp :: Word32 }
+    | PopupEntrySelection
+        { charId :: Word32,
+          entryId :: Word8 }
+    | ScreenSize Word16 Word16
     deriving Show
 
 parse :: SessionState -> RawPacket -> RxPacket
@@ -101,7 +106,7 @@ parseApp 0xBD raw =
               skip 3
               s <- getFixedStringNul (plen - 3) -- version string
               return (ClientVersion s)
--- [0xBF] ClientVersion
+-- [0xBF]
 parseApp 0xBF raw = 
     runGet getter (strict2lazy raw)
     where plen = B.length raw
@@ -109,7 +114,19 @@ parseApp 0xBF raw =
               skip 3
               subcmd <- getWord16be
               case subcmd of
-                  _ -> error ("don't know how to parse subcommand of 0xBF: " ++ show subcmd ++ "\n" ++ fmtHex raw)
+                  0x05 -> do -- ScreenSize
+                      skip 2
+                      x <- getWord16be
+                      y <- getWord16be
+                      return (ScreenSize x y)
+                  0x0B -> do
+                      l <- getFixedString 3
+                      return (ClientLanguage l)
+                  0x0F -> do
+                      cid <- getWord32be
+                      eid <- getWord8 -- i think this is right, penultima says word16 tho..
+                      return (PopupEntrySelection cid eid)
+                  _ -> error ("don't know how to parse subcommand of 0xBF: " ++ show subcmd)
 -- [0xEF] ClientLoginSeed
 parseApp 0xEF raw =
     runGet getter (strict2lazy raw)

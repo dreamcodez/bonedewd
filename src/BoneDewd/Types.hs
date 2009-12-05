@@ -47,9 +47,10 @@ data Mobile
     = Mobile
         { mobSerial :: Word32,
           mobBody :: Word16,
+          mobHue :: Word16,
           mobX :: Int16,
           mobY :: Int16,
-          mobZ :: Int16,
+          mobZ :: Int8,
           mobDirection :: MobDirection
         }
     deriving Show

@@ -36,6 +36,7 @@ data TxPacket
           mapWidth :: Word16,
           mapHeight :: Word16
         }
+    | MoveAccept Word8 MobNotoriety
     | Pong Word8
     deriving Show
         
@@ -113,6 +114,14 @@ build (DrawPlayer Mobile{..}) =
 -- [0x55] LoginComplete - 1 byte long
 build LoginComplete =
     RawPacket (lazy2strict (runPut (putWord8 0x55)))
+-- [0x22] MoveAccept - 3 bytes long
+-- sent in response to a MoveRequest
+build (MoveAccept seqId n) =
+    RawPacket (lazy2strict raw)
+    where raw = runPut $ do
+              putWord8 0x22
+              putWord8 seqId
+              putWord8 (fromIntegral(fromEnum n))
 -- [0x73] Ping - 2 bytes long
 build (Pong seqid) =
     RawPacket (lazy2strict raw)

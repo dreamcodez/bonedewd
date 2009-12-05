@@ -24,6 +24,8 @@ recvRawPacket _ peer = do
     return (RawPacket raw)
 
 recvAppPacket :: Word8 -> Socket -> IO B.ByteString
+-- [0x02] 7 bytes long
+recvAppPacket 0x02 peer = recvExactly peer 6
 -- [0x34] 10 bytes long
 recvAppPacket 0x34 peer = recvExactly peer 9
 -- [0x5D] 73 bytes long

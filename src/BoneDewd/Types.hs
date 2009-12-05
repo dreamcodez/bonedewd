@@ -27,13 +27,24 @@ instance Enum Direction where
     fromEnum DirLeft  = 0x05
     fromEnum DirWest  = 0x06
     fromEnum DirUp    = 0x07
-    
+    toEnum i =
+        case (0x0F .&. i) of
+            0x00 -> DirNorth
+            0x01 -> DirRight
+            0x02 -> DirEast
+            0x03 -> DirDown
+            0x04 -> DirSouth
+            0x05 -> DirLeft
+            0x06 -> DirWest
+            0x07 -> DirUp
+
 data MobDirection
     = MobDirection Direction RunningOrWalking
     deriving Show
 
 instance Enum MobDirection where
     fromEnum (MobDirection d r) = fromEnum d .|. fromEnum r
+    toEnum i = MobDirection (toEnum i) (toEnum i)
           
 data RunningOrWalking
     = Running
@@ -43,6 +54,10 @@ data RunningOrWalking
 instance Enum RunningOrWalking where
     fromEnum Running = 0x80
     fromEnum Walking = 0x00
+    toEnum i =
+        case (0x80 .&. i) of
+            0x80 -> Running
+            0x00 -> Walking
 
 data MobStatus
     = MobStatus
@@ -122,4 +137,5 @@ data SessionState
     = AccountLoginState
     | PreGameLoginState
     | GameLoginState
+    | InGameState
     deriving Show

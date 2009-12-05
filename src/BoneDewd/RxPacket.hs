@@ -40,6 +40,10 @@ data RxPacket
           charLoginCount :: Word32,
           charSlotChosen :: Word32,
           charClientIp :: Word32 }
+    | MoveRequest
+        { moveDir :: MobDirection,
+          moveSeq :: Word8,
+          moveKey :: Word32 }
     | Ping Word8
     | PopupEntrySelection
         { charId :: Word32,
@@ -55,6 +59,16 @@ parse _ (RawPacket raw) =
     where pid = runGet getWord8 (strict2lazy raw)
     
 parseApp :: Word8 -> B.ByteString -> Either String RxPacket
+-- [0x02] MoveRequest
+parseApp 0x02 raw =
+    runGet getter (strict2lazy raw)
+    where getter = do
+              skip 1
+              d <- getWord8
+              s <- getWord8
+              k <- getWord32be
+              return $ Right (MoveRequest (toEnum (fromIntegral d) :: MobDirection) s k)
+              
 -- [0x34] GetPlayerStatus
 parseApp 0x34 raw =
     runGet getter (strict2lazy raw)

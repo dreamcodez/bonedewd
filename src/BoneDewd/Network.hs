@@ -11,6 +11,7 @@ recvPacket :: SessionState -> Socket -> IO (Maybe RxPacket)
 recvPacket state peer = do
     res <- parse state <$> recvRawPacket state peer
     case res of
+        Right IgnoredPacket -> return Nothing
         Right rx -> do
             debugM "RxPacket" ("\n" ++ show rx)
             return (Just rx)

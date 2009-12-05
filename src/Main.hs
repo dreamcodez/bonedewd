@@ -88,6 +88,8 @@ handleRx peer (Rx.ClientLanguage _) = do
     sendPacket GameLoginState peer Tx.LoginComplete
 handleRx peer (Rx.Ping seqid) = do
     sendPacket GameLoginState peer (Tx.Pong seqid)
+handleRx peer (Rx.MoveRequest _ s _) = do
+    sendPacket InGameState peer (Tx.MoveAccept s Innocent)
 handleRx _ _ = return ()
 me :: Mobile
 me =
@@ -104,5 +106,7 @@ localhost = unsafePerformIO (inet_addr "127.0.0.1")
 setupLogging :: IO ()
 setupLogging = do
     updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel DEBUG)
-    h <- verboseStreamHandler stdout DEBUG
-    updateGlobalLogger rootLoggerName (setHandlers [h])
+    std <- verboseStreamHandler stdout DEBUG
+    --updateGlobalLogger "RxPacket" (setHandlers [std])
+    --updateGlobalLogger "TxPacket" (setHandlers [std])
+    updateGlobalLogger rootLoggerName (setHandlers [std])

@@ -1,6 +1,10 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE RecordWildCards #-}
 module Main where
+import BoneDewd.Network
+import qualified BoneDewd.RxPacket as Rx
+import qualified BoneDewd.TxPacket as Tx
+import BoneDewd.Util
 import Control.Applicative ((<$>))
 import Control.Concurrent
 import Control.Exception
@@ -10,10 +14,6 @@ import Data.Binary.Get
 import Data.Word
 import Network (PortID(..), listenOn)
 import Network.Socket (HostAddress, Socket, accept, sClose, inet_addr)
-import RawPacket
-import Util
-import qualified TxPacket as Tx
-import qualified RxPacket as Rx
 import System.IO
 import System.IO.Unsafe
 import System.Log.Logger 
@@ -23,8 +23,8 @@ import System.Log.Handler.Simple
 main :: IO ()
 main = do
     setupLogging
-    loginServer
-    --gameServer
+    forkIO loginServer
+    gameServer
 
 
 loginServer = 
@@ -49,28 +49,22 @@ handlePeer :: Socket -> IO ()
 handlePeer peer =
     work `finally` sClose peer
     where work = do
-              seed <- recvExactly peer 4 -- throw away first 4 bytes its junk
-              let seed' = runGet getWord32host (strict2lazy seed) 
-              debugM "RxPacket" (show seed')
-              forever $ do rx <- Rx.parse <$> recvPacket peer
-                           debugM "RxPacket" (show rx)
+              forever $ do rx <- recvPacket peer
                            handleRx peer rx    
 
 handlePeer' :: Socket -> IO ()
 handlePeer' peer =
     work `finally` sClose peer
     where work = do
-              --recvExactly peer 4 -- throw away first 4 bytes its junk
-              forever $ do rx <- Rx.parse <$> recvPacket peer
-                           debugM "RxPacket" (show rx)
-                           handleRx peer rx                               
+              forever $ do rx <- recvPacket peer
+                           handleRx peer rx                              
 
 handleRx :: Socket -> Rx.RxPacket -> IO ()
 handleRx peer Rx.AccountLoginRequest{..} = do
-    sendPacket peer (Tx.build serverList)
+    sendPacket peer serverList
     --sendPacket peer (Tx.build (Tx.AccountLoginFailed Tx.CommunicationProblem))
 handleRx peer Rx.ServerSelect{..} = do
-    sendCompressedPacket peer (Tx.build (Tx.ServerRedirect localhost 2593 0))
+    sendPacket peer (Tx.ServerRedirect localhost 3593 0)
 handleRx _ _ = return ()
 
 serverList :: Tx.TxPacket

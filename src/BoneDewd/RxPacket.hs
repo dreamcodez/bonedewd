@@ -94,13 +94,22 @@ parseApp 0xA0 raw =
               i <- getWord8 -- index of server that was selected   
               return (ServerSelect (fromIntegral i))
 -- [0xBD] ClientVersion
-parseApp 0xBd raw = 
+parseApp 0xBD raw = 
     runGet getter (strict2lazy raw)
     where plen = B.length raw
           getter = do
               skip 3
               s <- getFixedStringNul (plen - 3) -- version string
               return (ClientVersion s)
+-- [0xBF] ClientVersion
+parseApp 0xBF raw = 
+    runGet getter (strict2lazy raw)
+    where plen = B.length raw
+          getter = do
+              skip 3
+              subcmd <- getWord16be
+              case subcmd of
+                  _ -> error ("don't know how to parse subcommand of 0xBF: " ++ show subcmd ++ "\n" ++ fmtHex raw)
 -- [0xEF] ClientLoginSeed
 parseApp 0xEF raw =
     runGet getter (strict2lazy raw)

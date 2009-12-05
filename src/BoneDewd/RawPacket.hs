@@ -41,6 +41,12 @@ recvAppPacket 0xBD peer = do
     let (Right plen,_) = runGet getWord16be beg
     end <- recvExactly peer (fromIntegral $ plen - 3)
     return (beg `B.append` end)
+-- [0xBF] dynamic length
+recvAppPacket 0xBF peer = do
+    beg <- recvExactly peer 2
+    let (Right plen,_) = runGet getWord16be beg
+    end <- recvExactly peer (fromIntegral $ plen - 3)
+    return (beg `B.append` end)
 -- [0xEF] 21 bytes long
 recvAppPacket 0xEF peer = recvExactly peer 20
 recvAppPacket pid  _ = error ("received unknown app packet " ++ show pid)

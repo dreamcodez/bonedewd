@@ -68,6 +68,10 @@ handleRx peer Rx.AccountLoginRequest{..} = do
     --sendPacket peer (Tx.build (Tx.AccountLoginFailed Tx.CommunicationProblem))
 handleRx peer Rx.ServerSelect{..} = do
     sendPacket AccountLoginState peer (Tx.ServerRedirect localhost 3593 0)
+handleRx peer Rx.GameLoginRequest{..} = do
+    sendPacket GameLoginState peer (Tx.CharacterList chars cities)
+    where chars = [Tx.CharacterListItem "Fatty Bobo" "pass"]
+          cities = [Tx.StartingCity "Britain" "Da Ghetto"]
 handleRx _ _ = return ()
 
 serverList :: Tx.TxPacket

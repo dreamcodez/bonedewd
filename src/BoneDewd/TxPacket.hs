@@ -14,7 +14,11 @@ import BoneDewd.Types
 import BoneDewd.Util
 
 data TxPacket
-    = ServerList
+    = CharacterListAfterDelete [CharacterListItem]
+    | CharacterList
+        { characters :: [CharacterListItem],
+          cities :: [StartingCity] }
+    | ServerList
         { servers :: [ServerListItem] }
     | ServerRedirect
         { redirectHostAddress :: HostAddress,
@@ -41,6 +45,20 @@ data ServerListItem
         }
     deriving Show
 
+data CharacterListItem
+    = CharacterListItem
+        { charName :: String,
+          charPass :: String
+        }
+    deriving Show
+
+data StartingCity
+    = StartingCity
+        { cityName :: String,
+          cityArea :: String
+        }
+    deriving Show
+
 build :: TxPacket -> RawPacket
 -- [0x82] AccountLoginFailed - 2 bytes long
 build AccountLoginFailed{..} =
@@ -51,6 +69,22 @@ build AccountLoginFailed{..} =
                            YourAccountHasBeenBlocked         -> 0x02
                            YourAccountCredentialsAreInvalid  -> 0x03
                            CommunicationProblem              -> 0x04
+-- [0x86] CharacterListAfterDelete - dynamic length
+build (CharacterListAfterDelete characters) =
+    assert (numChars `elem` [5..7])
+    assert (L.length raw == fromIntegral pLen)   
+    RawPacket (lazy2strict raw)
+    where numChars = length characters
+          pLen = 4 + (numChars * 60)
+          rawTop = runPut $ do
+              put (0x86 :: Word8) -- packet id
+              put (fromIntegral pLen :: Word16) -- packet length
+              put (fromIntegral numChars :: Word8) -- char count
+          rawChar CharacterListItem{..} = runPut $ do
+              mapM_ put (truncString charName 30) -- name of char
+              mapM_ put (truncString charPass 30) -- pass of char
+          rawChars = map rawChar characters
+          raw = L.concat (rawTop : rawChars)
 -- [0x8C] ServerRedirect - 11 bytes long
 build ServerRedirect{..} =
     assert (L.length raw == 11)   
@@ -80,3 +114,30 @@ build ServerList{..} =
               putWord32be serverListHostAddress -- host address
           rawServers = map rawServer (zip servers [0..])
           raw = L.concat (rawTop : rawServers)
+-- [0xA9] CharacterList - dynamic length
+build CharacterList{..} =
+    assert (numChars' `elem` [5..7])
+    assert (L.length raw == fromIntegral pLen)  
+    RawPacket (lazy2strict raw)
+    where -- client expects you to pad the 'empty' characters
+          characters' = characters ++ (take (7 - numChars) (repeat (CharacterListItem "" "")))
+          numChars = length characters
+          numChars' = length characters'
+          numCities = length cities
+          pLen = 9 + (numChars' * 60) + (numCities * 63)
+          rawTop = runPut $ do
+              put (0xA9 :: Word8) -- packet id
+              put (fromIntegral pLen :: Word16) -- packet length
+              put (fromIntegral numChars' :: Word8) -- char count
+          rawChar CharacterListItem{..} = runPut $ do
+              mapM_ put (truncString charName 30) -- name of char
+              mapM_ put (truncString charPass 30) -- pass of char
+          rawChars = map rawChar characters'
+          rawCityTop = runPut $ put (fromIntegral numCities :: Word8) -- city count
+          rawCity (StartingCity{..}, idx) = runPut $ do
+              put (idx :: Word8) -- city index
+              mapM_ put (truncString cityName 31) -- name of city
+              mapM_ put (truncString cityArea 31) -- area of city
+          rawCities = map rawCity (zip cities [0..])
+          rawBottom = runPut $ put (0x00 :: Word32) -- flags
+          raw = L.concat ([rawTop] ++ rawChars ++ [rawCityTop] ++ rawCities ++ [rawBottom])

@@ -82,12 +82,17 @@ handleRx peer Rx.CharacterLoginRequest{..} = do
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
 handleRx peer (Rx.ClientLanguage _) = do
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
-    -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
+    sendPacket GameLoginState peer (Tx.DrawPlayer me)
     sendPacket GameLoginState peer (Tx.DrawMobile me)
     sendPacket GameLoginState peer (Tx.DrawMobile me)
+    sendPacket GameLoginState peer Tx.LoginComplete
+handleRx peer (Rx.Ping seqid) = do
+    sendPacket GameLoginState peer (Tx.Pong seqid)
 handleRx _ _ = return ()
 me :: Mobile
-me = Mobile 12345 0x192 255 1477 1638 50 (MobDirection DirDown Running) (MobStatus True False False False) Innocent []
+me =
+    Mobile 12345 0x192 255 britainLoc (MobDirection DirDown Running) (MobStatus True False False False) Innocent []
+    where britainLoc = Loc 1477 1638 50
 
 serverList :: Tx.TxPacket
 serverList =

@@ -30,12 +30,13 @@ data TxPacket
           encryptionKey :: Int }
     | AccountLoginFailed
         { reason :: AccountLoginFailReason }
+    | LoginComplete
     | LoginConfirm
         { loginMobile :: Mobile,
           mapWidth :: Word16,
           mapHeight :: Word16
         }
-        
+    | Pong Word8
     deriving Show
         
 data AccountLoginFailReason
@@ -80,10 +81,10 @@ build LoginConfirm{..} =
               put (mobSerial loginMobile :: Word32) -- serial # of mob
               put (0x00 :: Word32) -- unknown, always 0
               put (mobBody loginMobile :: Word16)
-              put (mobX loginMobile :: Int16)
-              put (mobY loginMobile :: Int16)
+              put ((locX $ mobLoc loginMobile) :: Word16)
+              put ((locY $ mobLoc loginMobile) :: Word16)
               put (0x00 :: Word8)
-              put (mobZ loginMobile :: Int8)
+              put ((locZ $ mobLoc loginMobile) :: Int8)
               put (fromIntegral (fromEnum (mobDirection loginMobile)) :: Word8)
               put (0x00 :: Word32) -- unknown, always 0
               put (0x00 :: Word32) -- unknown, always 0
@@ -93,22 +94,31 @@ build LoginConfirm{..} =
               put (0x00 :: Word16) -- unknown, always 0
               put (0x00 :: Word32) -- unknown, always 0
 -- [0x20] DrawPlayer - 19 bytes long
-build (DrawPlayer m) =
+build (DrawPlayer Mobile{..}) =
     assert (L.length raw == fromIntegral pLen)
     RawPacket (lazy2strict raw)
     where pLen = 19
           raw = runPut $ do
               put (0x20 :: Word8) -- packet id
-              put (mobSerial m :: Word32) -- serial # of mob
-              put (mobBody m :: Word16)
+              put (mobSerial :: Word32) -- serial # of mob
+              put (mobBody :: Word16)
               put (0x00 :: Word8) -- unknown
-              put (mobHue m :: Word16) -- hue
+              put (mobHue :: Word16) -- hue
               put (0x00 :: Word8) -- flag
-              put (mobX m :: Int16)
-              put (mobY m :: Int16)
+              put (locX mobLoc :: Word16)
+              put (locY mobLoc :: Word16)
               put (0x00 :: Word16) -- unknown, always 0
-              put (fromIntegral (fromEnum (mobDirection m)) :: Word8)
-              put (mobZ m :: Int8)
+              put (fromIntegral (fromEnum mobDirection) :: Word8)
+              put (locZ mobLoc :: Int8)
+-- [0x55] LoginComplete - 1 byte long
+build LoginComplete =
+    RawPacket (lazy2strict (runPut (putWord8 0x55)))
+-- [0x73] Ping - 2 bytes long
+build (Pong seqid) =
+    RawPacket (lazy2strict raw)
+    where raw = runPut $ do
+              putWord8 0x73
+              putWord8 seqid
 -- [0x78] DrawMobile - dynamic length
 build (DrawMobile Mobile{..}) =
     assert (L.length raw == fromIntegral pLen)
@@ -119,9 +129,9 @@ build (DrawMobile Mobile{..}) =
               put (fromIntegral pLen :: Word16) -- length
               put (mobSerial :: Word32) -- serial # of mob
               put (mobBody :: Word16)
-              put (mobX :: Int16)
-              put (mobY :: Int16)
-              put (mobZ :: Int8)
+              put (locX mobLoc :: Word16)
+              put (locY mobLoc :: Word16)
+              put (locZ mobLoc :: Int8)
               put (fromIntegral (fromEnum mobDirection) :: Word8)
               put (mobHue :: Word16) -- hue
               put (fromIntegral (fromEnum mobStatus) :: Word8)

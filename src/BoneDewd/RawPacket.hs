@@ -11,6 +11,7 @@ import Network.Socket.ByteString
 import BoneDewd.Types
 import BoneDewd.Util
 import System.Log.Logger
+import Text.Printf
     
 recvRawPacket :: SessionState -> Socket -> IO RawPacket
 recvRawPacket PreGameLoginState peer = RawPacket <$> recvExactly peer 4 -- auth id
@@ -49,7 +50,7 @@ recvAppPacket 0xBF peer = do
     return (beg `B.append` end)
 -- [0xEF] 21 bytes long
 recvAppPacket 0xEF peer = recvExactly peer 20
-recvAppPacket pid  _ = error ("received unknown app packet " ++ show pid)
+recvAppPacket pid  _ = error ("received unknown app packet " ++ printf "0x%02x" pid)
 
 sendRawPacket :: SessionState -> Socket -> RawPacket -> IO ()
 sendRawPacket AccountLoginState = sendUncompressedRawPacket

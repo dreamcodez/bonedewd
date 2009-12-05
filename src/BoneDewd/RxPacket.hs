@@ -33,12 +33,14 @@ data RxPacket
     | GetPlayerStatus
         { pType :: Word8,
           pSerial :: Word32 }
+    | IgnoredPacket
     | CharacterLoginRequest
         { charName :: String,
           charClientFlag :: Word32,
           charLoginCount :: Word32,
           charSlotChosen :: Word32,
           charClientIp :: Word32 }
+    | Ping Word8
     | PopupEntrySelection
         { charId :: Word32,
           entryId :: Word8 }
@@ -75,6 +77,10 @@ parseApp 0x5D raw =
               s <- getWord32be
               i <- getWord32be
               return $ Right (CharacterLoginRequest n f c s i)
+-- [0x73] Ping
+parseApp 0x73 raw =
+    Right (Ping seqid) 
+    where seqid = runGet (skip 1 >> getWord8) (strict2lazy raw)
 -- [0x80] AccountLoginRequest
 parseApp 0x80 raw =
     runGet getter (strict2lazy raw)
@@ -120,14 +126,16 @@ parseApp 0xBF raw =
                       x <- getWord16be
                       y <- getWord16be
                       return $ Right (ScreenSize x y)
-                  0x0B -> do
+                  0x0B -> do -- ClientLanguage
                       l <- getFixedString 3
                       return $ Right (ClientLanguage l)
-                  0x0F -> do
+                  0x0F -> do -- PopupEntrySelection
                       cid <- getWord32be
                       eid <- getWord8 -- i think this is right, penultima says word16 tho..
                       return $ Right (PopupEntrySelection cid eid)
-                  _ -> return $ Left ("don't know how to parse subcommand of 0xBF: " ++ printf "%02x" subcmd)
+                  0x24 -> do -- unknown. UOSE Introduced (http://docs.polserver.com/packets/index.php?Packet=0xBF)
+                      return (Right IgnoredPacket)
+                  _ -> return $ Left ("don't know how to parse subcommand of 0xBF: " ++ printf "0x%02x" subcmd)
 -- [0xEF] ClientLoginSeed
 parseApp 0xEF raw =
     runGet getter (strict2lazy raw)

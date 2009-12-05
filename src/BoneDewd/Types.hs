@@ -91,14 +91,19 @@ data MobEquipmentItem
           equipHue :: Word16 }
     deriving Show
 
+data Loc
+    = Loc
+        { locX :: Word16,
+          locY :: Word16,
+          locZ :: Int8 }
+    deriving Show
+
 data Mobile
     = Mobile
         { mobSerial :: Word32,
           mobBody :: Word16,
           mobHue :: Word16,
-          mobX :: Int16,
-          mobY :: Int16,
-          mobZ :: Int8,
+          mobLoc :: Loc,
           mobDirection :: MobDirection,
           mobStatus :: MobStatus,
           mobNotoriety :: MobNotoriety,
@@ -106,6 +111,7 @@ data Mobile
         }
     deriving Show
 
+    
 data RawPacket =
     RawPacket B.ByteString
 

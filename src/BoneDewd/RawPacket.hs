@@ -2,68 +2,73 @@
 module BoneDewd.RawPacket where
 import Control.Applicative ((<$>))
 import BoneDewd.Compression
+import Data.ByteString (hGet, hPut)
 import qualified Data.ByteString as B
 -- import Data.Binary
 import Data.Binary.Strict.Get
 import Data.Word
 import Network (Socket)
-import Network.Socket.ByteString
 import BoneDewd.Types
 import BoneDewd.Util
+import System.IO
 import System.Log.Logger
 import Text.Printf
     
-recvRawPacket :: SessionState -> Socket -> IO RawPacket
-recvRawPacket PreGameLoginState peer = RawPacket <$> recvExactly peer 4 -- auth id
+recvRawPacket :: SessionState -> Handle -> IO RawPacket
+recvRawPacket PreGameLoginState peer = RawPacket <$> hGet peer 4 -- auth id
 recvRawPacket _ peer = do
-    beg <- recvExactly peer 1
+    beg <- hGet peer 1
     let (Right pid,_) = runGet getWord8 beg
     end <- recvAppPacket pid peer
     let raw = beg `B.append` end
     debugM "RawPacket" ("RECEIVED\n" ++ fmtHex raw)
     return (RawPacket raw)
 
-recvAppPacket :: Word8 -> Socket -> IO B.ByteString
+recvAppPacket :: Word8 -> Handle -> IO B.ByteString
 -- [0x02] 7 bytes long
-recvAppPacket 0x02 peer = recvExactly peer 6
+recvAppPacket 0x02 peer = hGet peer 6
+-- [0x06] 5 bytes long
+recvAppPacket 0x06 peer = hGet peer 4
 -- [0x34] 10 bytes long
-recvAppPacket 0x34 peer = recvExactly peer 9
+recvAppPacket 0x34 peer = hGet peer 9
 -- [0x5D] 73 bytes long
-recvAppPacket 0x5D peer = recvExactly peer 72
+recvAppPacket 0x5D peer = hGet peer 72
 -- [0x73] 2 bytes long
-recvAppPacket 0x73 peer = recvExactly peer 1
+recvAppPacket 0x73 peer = hGet peer 1
 -- [0x80] 62 bytes long
-recvAppPacket 0x80 peer = recvExactly peer 61
+recvAppPacket 0x80 peer = hGet peer 61
 -- [0x91] 65 bytes long
-recvAppPacket 0x91 peer = recvExactly peer 64
+recvAppPacket 0x91 peer = hGet peer 64
 -- [0xA0] 3 bytes long
-recvAppPacket 0xA0 peer = recvExactly peer 2
+recvAppPacket 0xA0 peer = hGet peer 2
 -- [0XBD] dynamic length
 recvAppPacket 0xBD peer = do
-    beg <- recvExactly peer 2
+    beg <- hGet peer 2
     let (Right plen,_) = runGet getWord16be beg
-    end <- recvExactly peer (fromIntegral $ plen - 3)
+    end <- hGet peer (fromIntegral $ plen - 3)
     return (beg `B.append` end)
 -- [0xBF] dynamic length
 recvAppPacket 0xBF peer = do
-    beg <- recvExactly peer 2
+    beg <- hGet peer 2
     let (Right plen,_) = runGet getWord16be beg
-    end <- recvExactly peer (fromIntegral $ plen - 3)
+    end <- hGet peer (fromIntegral $ plen - 3)
     return (beg `B.append` end)
 -- [0xEF] 21 bytes long
-recvAppPacket 0xEF peer = recvExactly peer 20
+recvAppPacket 0xEF peer = hGet peer 20
 recvAppPacket pid  _ = error ("received unknown app packet " ++ printf "0x%02x" pid)
 
-sendRawPacket :: SessionState -> Socket -> RawPacket -> IO ()
+sendRawPacket :: SessionState -> Handle -> RawPacket -> IO ()
 sendRawPacket AccountLoginState = sendUncompressedRawPacket
 sendRawPacket _                 = sendCompressedRawPacket
 
-sendUncompressedRawPacket :: Socket -> RawPacket -> IO ()
+sendUncompressedRawPacket :: Handle -> RawPacket -> IO ()
 sendUncompressedRawPacket peer (RawPacket raw) = do
-    sendAll peer raw
+    hPut peer raw
+    hFlush peer
     debugM "RawPacket" ("SENT\n" ++ fmtHex raw)
 
-sendCompressedRawPacket :: Socket -> RawPacket -> IO ()
+sendCompressedRawPacket :: Handle -> RawPacket -> IO ()
 sendCompressedRawPacket peer (RawPacket raw) = do
-    sendAll peer (compress raw)
+    hPut peer (compress raw)
+    hFlush peer
     debugM "RawPacket" ("SENT COMPRESSED\n" ++ fmtHex raw)

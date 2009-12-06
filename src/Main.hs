@@ -13,20 +13,27 @@ import Control.Monad
 import Data.Binary
 import Data.Binary.Get
 import Data.Word
-import Network (PortID(..), listenOn)
-import Network.Socket (HostAddress, Socket, accept, sClose, inet_addr)
+import Network (PortID(..), accept, listenOn)
+import Network.Socket (HostAddress, Socket, inet_addr, sClose)
 import System.IO
 import System.IO.Unsafe
 import System.Log.Logger 
 import System.Log.Handler
 import System.Log.Handler.Simple
 
+-- only works on windows
+waitForTermination = do
+    l <- getLine
+    case l of
+        "quit" -> return ()
+        _   -> waitForTermination
+
 main :: IO ()
 main = do
     setupLogging
     forkIO $ loginServer
-    gameServer
-
+    forkIO $ gameServer
+    waitForTermination
 
 loginServer = 
     bracket
@@ -41,14 +48,15 @@ gameServer =
         (forever . gameAccept)
 
 loginAccept :: Socket -> IO ()
-loginAccept service = accept service >>= \(peer,_) -> forkIO (handlePeer peer) >> return ()
+loginAccept service = accept service >>= \(peer,_,_) -> forkIO (handlePeer peer) >> return ()
 
 gameAccept :: Socket -> IO ()
-gameAccept service = accept service >>= \(peer,_) -> forkIO (handlePeer' peer) >> return ()
+gameAccept service = accept service >>= \(peer,_,_) -> forkIO (handlePeer' peer) >> return ()
 
-handlePeer :: Socket -> IO ()
-handlePeer peer =
-    work `finally` sClose peer
+handlePeer :: Handle -> IO ()
+handlePeer peer = do
+    hSetBuffering peer (BlockBuffering (Just 4096))
+    work `finally` hClose peer
     where work = do
               forever $ do res <- recvPacket AccountLoginState peer
                            case res of
@@ -56,9 +64,10 @@ handlePeer peer =
                                Nothing -> return ()
 
 -- for game server
-handlePeer' :: Socket -> IO ()
-handlePeer' peer =
-    work `finally` sClose peer
+handlePeer' :: Handle -> IO ()
+handlePeer' peer = do
+    hSetBuffering peer (BlockBuffering (Just 4096))
+    work `finally` hClose peer
     where work = do
               recvPacket PreGameLoginState peer -- after first packet we are no longer pre-game
               forever $ do res <- recvPacket GameLoginState peer
@@ -66,7 +75,7 @@ handlePeer' peer =
                                Just rx -> handleRx peer rx
                                Nothing -> return ()                            
 
-handleRx :: Socket -> Rx.RxPacket -> IO ()
+handleRx :: Handle -> Rx.RxPacket -> IO ()
 handleRx peer Rx.AccountLoginRequest{..} = do
     sendPacket AccountLoginState peer serverList
     --sendPacket peer (Tx.build (Tx.AccountLoginFailed Tx.CommunicationProblem))

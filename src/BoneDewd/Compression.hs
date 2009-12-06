@@ -49,4 +49,4 @@ compress input = unsafePerformIO $ do
     debugM "Compression" (show inputLen ++ " bytes before compression / " ++ show outputLen ++ " bytes after")
     B.packCStringLen (outputBuf,fromIntegral outputLen)
 
-foreign import ccall unsafe "compress" c_compress :: CString -> CInt -> CString -> CInt -> IO CInt
+foreign import ccall "compress" c_compress :: CString -> CInt -> CString -> CInt -> IO CInt

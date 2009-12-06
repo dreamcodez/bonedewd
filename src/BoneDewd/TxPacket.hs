@@ -44,6 +44,7 @@ data TxPacket
           mapHeight :: Word16
         }
     | MoveAccept Word8 MobNotoriety
+    | OpenPaperDoll Serial String MobStatus
     | Pong Word8
     deriving Show
         
@@ -129,7 +130,7 @@ build LoginConfirm{..} =
     where pLen = 37
           raw = runPut $ do
               put (0x1B :: Word8) -- packet id
-              put (mobSerial loginMobile :: Word32) -- serial # of mob
+              put (unSerial $ mobSerial loginMobile :: Word32) -- serial # of mob
               put (0x00 :: Word32) -- unknown, always 0
               put (mobBody loginMobile :: Word16)
               put ((locX $ mobLoc loginMobile) :: Word16)
@@ -151,7 +152,7 @@ build (DrawPlayer Mobile{..}) =
     where pLen = 19
           raw = runPut $ do
               put (0x20 :: Word8) -- packet id
-              put (mobSerial :: Word32) -- serial # of mob
+              put (unSerial mobSerial :: Word32) -- serial # of mob
               put (mobBody :: Word16)
               put (0x00 :: Word8) -- unknown
               put (mobHue :: Word16) -- hue
@@ -186,7 +187,7 @@ build (DrawMobile Mobile{..}) =
           raw = runPut $ do
               put (0x78 :: Word8) -- packet id
               put (fromIntegral pLen :: Word16) -- length
-              put (mobSerial :: Word32) -- serial # of mob
+              put (unSerial mobSerial :: Word32) -- serial # of mob
               put (mobBody :: Word16)
               put (locX mobLoc :: Word16)
               put (locY mobLoc :: Word16)
@@ -226,6 +227,16 @@ build (CharacterListAfterDelete characters) =
               mapM_ put (truncString charPass 30) -- pass of char
           rawChars = map rawChar characters
           raw = L.concat (rawTop : rawChars)
+-- [0x88] OpenPaperDoll - 66 bytes long
+build (OpenPaperDoll (Serial cid) title stat) = 
+    assert (L.length raw == fromIntegral pLen)
+    RawPacket (lazy2strict raw)
+    where pLen = 66
+          raw = runPut $ do
+              putWord8 0x88
+              putWord32be cid
+              mapM_ put (truncString title 60)
+              putWord8 (fromIntegral $ fromEnum stat)
 -- [0x8C] ServerRedirect - 11 bytes long
 build ServerRedirect{..} =
     assert (L.length raw == 11)   

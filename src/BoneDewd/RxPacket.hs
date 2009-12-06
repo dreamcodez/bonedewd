@@ -168,6 +168,8 @@ parseApp 0xBF raw =
                   0x24 -> do -- unknown. UOSE Introduced (http://docs.polserver.com/packets/index.php?Packet=0xBF)
                       return (Right IgnoredPacket)
                   _ -> return $ Left ("don't know how to parse subcommand of 0xBF: " ++ printf "0x%02x" subcmd ++ "\n" ++ fmtHex raw)
+-- [0xD9] IgnoredPacket (unused system/video/hw info)
+parseApp 0xD9 _ = Right IgnoredPacket
 -- [0xEF] ClientLoginSeed
 parseApp 0xEF raw =
     runGet getter (strict2lazy raw)

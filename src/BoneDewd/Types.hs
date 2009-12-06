@@ -115,7 +115,7 @@ data Loc
 
 data Mobile
     = Mobile
-        { mobSerial :: Word32,
+        { mobSerial :: Serial,
           mobBody :: Word16,
           mobHue :: Word16,
           mobLoc :: Loc,

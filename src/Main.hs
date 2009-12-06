@@ -103,13 +103,17 @@ handleRx peer (Rx.Ping seqid) = do
     sendPacket GameLoginState peer (Tx.Pong seqid)
 handleRx peer (Rx.MoveRequest _ s _) = do
     sendPacket InGameState peer (Tx.MoveAccept s Innocent)
+handleRx peer Rx.PaperDollRequest = do
+    sendPacket InGameState peer (Tx.OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
 handleRx _ _ = return ()
 
 me :: Mobile
 me =
-    Mobile 12345 0x192 255 britainLoc (MobDirection DirDown Running) (MobStatus True False False False) Innocent []
+    Mobile mySerial 0x192 255 britainLoc (MobDirection DirDown Running) myStatus Innocent []
     where britainLoc = Loc 1477 1638 50
 
+myStatus = (MobStatus True False False False)
+mySerial = Serial 12345
 meStats :: MobileStats
 meStats = MobileStats
     { statStr = 100,

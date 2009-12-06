@@ -53,15 +53,18 @@ loginAccept service = accept service >>= \(peer,_,_) -> forkIO (handlePeer peer)
 gameAccept :: Socket -> IO ()
 gameAccept service = accept service >>= \(peer,_,_) -> forkIO (handlePeer' peer) >> return ()
 
+-- for login server
 handlePeer :: Handle -> IO ()
 handlePeer peer = do
     hSetBuffering peer (BlockBuffering (Just 4096))
     work `finally` hClose peer
     where work = do
-              forever $ do res <- recvPacket AccountLoginState peer
-                           case res of
-                               Just rx -> handleRx peer rx
-                               Nothing -> return ()
+              let loop = do
+                      res <- recvPacket AccountLoginState peer
+                      case res of
+                          Just rx -> handleRx peer rx >> loop
+                          Nothing -> infoM "LoginServer" "PEER CONNECTION CLOSED"
+              loop       
 
 -- for game server
 handlePeer' :: Handle -> IO ()
@@ -70,10 +73,12 @@ handlePeer' peer = do
     work `finally` hClose peer
     where work = do
               recvPacket PreGameLoginState peer -- after first packet we are no longer pre-game
-              forever $ do res <- recvPacket GameLoginState peer
-                           case res of
-                               Just rx -> handleRx peer rx
-                               Nothing -> return ()                            
+              let loop = do
+                      res <- recvPacket GameLoginState peer
+                      case res of
+                          Just rx -> handleRx peer rx >> loop
+                          Nothing -> infoM "GameServer" "PEER CONNECTION CLOSED"
+              loop                          
 
 handleRx :: Handle -> Rx.RxPacket -> IO ()
 handleRx peer Rx.AccountLoginRequest{..} = do

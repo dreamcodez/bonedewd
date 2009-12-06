@@ -149,7 +149,7 @@ parseApp 0xBF raw =
                       return $ Right (PopupEntrySelection cid eid)
                   0x24 -> do -- unknown. UOSE Introduced (http://docs.polserver.com/packets/index.php?Packet=0xBF)
                       return (Right IgnoredPacket)
-                  _ -> return $ Left ("don't know how to parse subcommand of 0xBF: " ++ printf "0x%02x" subcmd)
+                  _ -> return $ Left ("don't know how to parse subcommand of 0xBF: " ++ printf "0x%02x" subcmd ++ "\n" ++ fmtHex raw)
 -- [0xEF] ClientLoginSeed
 parseApp 0xEF raw =
     runGet getter (strict2lazy raw)
@@ -161,4 +161,4 @@ parseApp 0xEF raw =
               verC <- getWord32be
               verD <- getWord32be
               return $ Right (ClientLoginSeed seed verA verB verC verD)
-parseApp pid raw = Left ("don't know how to parse packet: " ++ printf "0x%02x" pid)
+parseApp pid raw = Left ("don't know how to parse packet: " ++ printf "0x%02x" pid ++ "\n" ++ fmtHex raw)

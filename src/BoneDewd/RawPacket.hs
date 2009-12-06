@@ -14,17 +14,25 @@ import System.IO
 import System.Log.Logger
 import Text.Printf
     
-recvRawPacket :: SessionState -> Handle -> IO RawPacket
-recvRawPacket PreGameLoginState peer = RawPacket <$> hGet peer 4 -- auth id
+-- when Nothing is returned, this means the connection is dead
+recvRawPacket :: SessionState -> Handle -> IO (Maybe RawPacket)
+recvRawPacket PreGameLoginState peer = Just . RawPacket <$> hGet peer 4 -- auth id
 recvRawPacket _ peer = do
     beg <- hGet peer 1
-    let (Right pid,_) = runGet getWord8 beg
-    end <- recvAppPacket pid peer
-    let raw = beg `B.append` end
-    debugM "RawPacket" ("RECEIVED\n" ++ fmtHex raw)
-    return (RawPacket raw)
+    if beg == B.empty
+        -- half closed state, if this triggers then we probably ended the connection uncleanly
+        then return Nothing
+        -- continue processing packet
+        else do
+            let (Right pid,_) = runGet getWord8 beg
+            end <- recvAppPacket pid peer
+            let raw = beg `B.append` end
+            debugM "RawPacket" ("RECEIVED\n" ++ fmtHex raw)
+            return $ Just (RawPacket raw)
 
 recvAppPacket :: Word8 -> Handle -> IO B.ByteString
+-- [0x00] 104 bytes long
+recvAppPacket 0x00 peer = hGet peer 103
 -- [0x02] 7 bytes long
 recvAppPacket 0x02 peer = hGet peer 6
 -- [0x06] 5 bytes long

@@ -10,15 +10,18 @@ import System.Log.Logger
 
 recvPacket :: SessionState -> Handle -> IO (Maybe RxPacket)
 recvPacket state peer = do
-    res <- parse state <$> recvRawPacket state peer
-    case res of
-        Right IgnoredPacket -> return Nothing
-        Right rx -> do
-            infoM "RxPacket" (show rx)
-            return (Just rx)
-        Left err -> do
-            errorM "RxPacket" err
-            return Nothing
+    mraw <- recvRawPacket state peer
+    case mraw of
+        Nothing -> return Nothing
+        Just raw -> do
+            case parse state raw of
+                Right IgnoredPacket -> return (Just IgnoredPacket)
+                Right rx -> do
+                    infoM "RxPacket" (show rx)
+                    return (Just rx)
+                Left err -> do
+                    errorM "RxPacket" err
+                    return Nothing
 
 sendPacket :: SessionState -> Handle -> TxPacket -> IO ()
 sendPacket state peer tx = do

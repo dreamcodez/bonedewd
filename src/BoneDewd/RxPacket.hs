@@ -5,6 +5,7 @@ import Control.Applicative ((<$>))
 
 --import Data.Binary
 import Data.Binary.Get
+import Data.Bits
 import qualified Data.ByteString as B
 import Data.Word
 import BoneDewd.RawPacket
@@ -40,15 +41,18 @@ data RxPacket
           charLoginCount :: Word32,
           charSlotChosen :: Word32,
           charClientIp :: Word32 }
+    | LookRequest Serial
     | MoveRequest
         { moveDir :: MobDirection,
           moveSeq :: Word8,
           moveKey :: Word32 }
+    | PaperDollRequest
     | Ping Word8
     | PopupEntrySelection
         { charId :: Word32,
           entryId :: Word8 }
     | ScreenSize Word16 Word16
+    | UseRequest Serial
     deriving Show
 
 parse :: SessionState -> RawPacket -> Either String RxPacket
@@ -68,7 +72,21 @@ parseApp 0x02 raw =
               s <- getWord8
               k <- getWord32be
               return $ Right (MoveRequest (toEnum (fromIntegral d) :: MobDirection) s k)
-              
+-- [0x06] UseRequest / PaperDollRequest
+parseApp 0x06 raw =
+    runGet getter (strict2lazy raw)
+    where getter = do
+              skip 1
+              res <- getWord32be
+              if (res .&. 0x80000000) == 0x80000000
+                  then return $ Right PaperDollRequest
+                  else return $ Right (UseRequest (Serial res))
+-- [0x09] LookRequest
+parseApp 0x09 raw =
+    runGet getter (strict2lazy raw)
+    where getter = do
+              skip 1
+              Right . LookRequest . Serial <$> getWord32be
 -- [0x34] GetPlayerStatus
 parseApp 0x34 raw =
     runGet getter (strict2lazy raw)

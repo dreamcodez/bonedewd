@@ -95,20 +95,47 @@ handleRx peer Rx.CharacterLoginRequest{..} = do
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
 handleRx peer (Rx.ClientLanguage _) = do
-    -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
-    sendPacket GameLoginState peer (Tx.DrawPlayer me)
-    sendPacket GameLoginState peer (Tx.DrawMobile me)
-    sendPacket GameLoginState peer (Tx.DrawMobile me)
     sendPacket GameLoginState peer Tx.LoginComplete
+    --sendPacket GameLoginState peer (Tx.DrawPlayer me)
+    --sendPacket GameLoginState peer (Tx.DrawMobile me)   
+    sendPacket GameLoginState peer (Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False)
 handleRx peer (Rx.Ping seqid) = do
     sendPacket GameLoginState peer (Tx.Pong seqid)
 handleRx peer (Rx.MoveRequest _ s _) = do
     sendPacket InGameState peer (Tx.MoveAccept s Innocent)
 handleRx _ _ = return ()
+
 me :: Mobile
 me =
     Mobile 12345 0x192 255 britainLoc (MobDirection DirDown Running) (MobStatus True False False False) Innocent []
     where britainLoc = Loc 1477 1638 50
+
+meStats :: MobileStats
+meStats = MobileStats
+    { statStr = 100,
+      statDex = 25,
+      statInt = 100,
+      statCap = 225,
+      statLuck = 777,
+      statCurHits = 85,
+      statMaxHits = 100,
+      statCurMana = 43,
+      statMaxMana = 100,
+      statCurStam = 39,
+      statMaxStam = 50,
+      statCurWeight = 333,
+      statMaxWeight = 500,
+      statCurFollow = 0,
+      statMaxFollow = 5,
+      statGold = 133,
+      statMinDmg = 10,
+      statMaxDmg = 33,
+      statResistPhysical = 100,
+      statResistFire = 100,
+      statResistCold = 13,
+      statResistPoison = 44,
+      statResistEnergy = 32
+    }
 
 serverList :: Tx.TxPacket
 serverList =
@@ -120,7 +147,7 @@ localhost = unsafePerformIO (inet_addr "127.0.0.1")
 setupLogging :: IO ()
 setupLogging = do
     std <- verboseStreamHandler stdout INFO
-    updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel INFO)
+    updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel DEBUG)
     -- updateGlobalLogger "RxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)
     -- updateGlobalLogger "TxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)
     updateGlobalLogger rootLoggerName (setHandlers [std])

@@ -37,6 +37,8 @@ recvAppPacket 0x00 peer = hGet peer 103
 recvAppPacket 0x02 peer = hGet peer 6
 -- [0x06] 5 bytes long
 recvAppPacket 0x06 peer = hGet peer 4
+-- [0x09] 5 bytes long
+recvAppPacket 0x09 peer = hGet peer 4
 -- [0x34] 10 bytes long
 recvAppPacket 0x34 peer = hGet peer 9
 -- [0x5D] 73 bytes long

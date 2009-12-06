@@ -125,8 +125,38 @@ data Mobile
           mobEquipment :: [MobEquipmentItem]
         }
     deriving Show
-
     
+newtype Serial
+    = Serial { unSerial :: Word32 }
+    deriving Show
+
+data MobileStats
+    = MobileStats
+        { statStr :: Word16,
+          statDex :: Word16,
+          statInt :: Word16,
+          statCap :: Word16, -- stat cap
+          statLuck :: Word16, -- special luck stat
+          statCurHits :: Word16, -- hitpoints
+          statMaxHits :: Word16,
+          statCurMana :: Word16, -- mana
+          statMaxMana :: Word16,
+          statCurStam :: Word16, -- stamina
+          statMaxStam :: Word16,
+          statCurWeight :: Word16, -- weight
+          statMaxWeight :: Word16,
+          statCurFollow :: Word8, -- current amount of pets
+          statMaxFollow :: Word8, -- max amount of pets
+          statGold :: Word32, -- amount of gold in pack
+          statMinDmg :: Word16,
+          statMaxDmg :: Word16,
+          statResistPhysical :: Word16,
+          statResistFire :: Word16,
+          statResistCold :: Word16,
+          statResistPoison :: Word16,
+          statResistEnergy :: Word16 }
+    deriving Show
+
 data RawPacket =
     RawPacket B.ByteString
 

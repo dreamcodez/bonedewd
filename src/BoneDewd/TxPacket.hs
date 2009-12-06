@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE NamedFieldPuns, RecordWildCards #-}
 module BoneDewd.TxPacket where
 import Control.Exception
 import Control.Monad
@@ -28,6 +28,13 @@ data TxPacket
         { redirectHostAddress :: HostAddress,
           redirectHostPort :: Int,
           encryptionKey :: Int }
+    | StatusBarInfo
+        { sbSerial :: Serial,
+          sbName :: String,
+          sbStats :: MobileStats,
+          sbTithe :: Word32, -- tithing points
+          sbCanChangeName :: Bool
+        }
     | AccountLoginFailed
         { reason :: AccountLoginFailReason }
     | LoginComplete
@@ -72,6 +79,49 @@ data StartingCity
     deriving Show
 
 build :: TxPacket -> RawPacket
+-- [0x11] StatusBarInfo - dynamic length
+-- I chose to standardize on the ML feature set (but not kr)
+build StatusBarInfo{sbSerial,sbName,sbStats,sbTithe,sbCanChangeName} =
+    assert (L.length raw == fromIntegral pLen)
+    RawPacket (lazy2strict raw)
+    where pLen = 91
+          raw = putter sbStats
+          putter MobileStats{..} = runPut $ do
+              putWord8 0x11
+              putWord16be (fromIntegral pLen)
+              putWord32be (unSerial sbSerial)
+              mapM_ put (truncString sbName 30) -- name of mobile on status bar
+              putWord16be statCurHits
+              putWord16be statMaxHits
+              if sbCanChangeName
+                  then putWord8 0x01
+                  else putWord8 0x00
+              putWord8 0x05 -- UOML Extended Info
+              putWord8 0x00 -- male human
+              putWord16be statStr
+              putWord16be statDex
+              putWord16be statInt
+              putWord16be statCurStam
+              putWord16be statMaxStam
+              putWord16be statCurMana
+              putWord16be statMaxMana
+              putWord32be statGold
+              putWord16be statResistPhysical
+              putWord16be statCurWeight
+              putWord16be statMaxWeight
+              putWord8 0x01 -- human race
+              putWord16be statCap
+              putWord8 statCurFollow
+              putWord8 statMaxFollow
+              putWord16be statResistFire
+              putWord16be statResistCold
+              putWord16be statResistPoison
+              putWord16be statResistEnergy
+              putWord16be statLuck
+              putWord16be statMinDmg
+              putWord16be statMaxDmg
+              putWord32be sbTithe
+
 -- [0x1B] LoginConfirm - 37 bytes long
 build LoginConfirm{..} =
     assert (L.length raw == fromIntegral pLen)
@@ -111,9 +161,6 @@ build (DrawPlayer Mobile{..}) =
               put (0x00 :: Word16) -- unknown, always 0
               put (fromIntegral (fromEnum mobDirection) :: Word8)
               put (locZ mobLoc :: Int8)
--- [0x55] LoginComplete - 1 byte long
-build LoginComplete =
-    RawPacket (lazy2strict (runPut (putWord8 0x55)))
 -- [0x22] MoveAccept - 3 bytes long
 -- sent in response to a MoveRequest
 build (MoveAccept seqId n) =
@@ -122,6 +169,9 @@ build (MoveAccept seqId n) =
               putWord8 0x22
               putWord8 seqId
               putWord8 (fromIntegral(fromEnum n))
+-- [0x55] LoginComplete - 1 byte long
+build LoginComplete =
+    RawPacket (lazy2strict (runPut (putWord8 0x55)))
 -- [0x73] Ping - 2 bytes long
 build (Pong seqid) =
     RawPacket (lazy2strict raw)

@@ -14,14 +14,14 @@ recvPacket state peer = do
     case res of
         Right IgnoredPacket -> return Nothing
         Right rx -> do
-            debugM "RxPacket" ("\n" ++ show rx)
+            infoM "RxPacket" (show rx)
             return (Just rx)
         Left err -> do
-            debugM "RxPacket" err
+            errorM "RxPacket" err
             return Nothing
 
 sendPacket :: SessionState -> Handle -> TxPacket -> IO ()
 sendPacket state peer tx = do
     sendRawPacket state peer (build tx)
-    debugM "TxPacket" ("\n" ++ show tx)
+    infoM "TxPacket" (show tx)
     return ()

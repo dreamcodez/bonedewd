@@ -41,7 +41,7 @@ recvAppPacket 0x80 peer = hGet peer 61
 recvAppPacket 0x91 peer = hGet peer 64
 -- [0xA0] 3 bytes long
 recvAppPacket 0xA0 peer = hGet peer 2
--- [0XBD] dynamic length
+-- [0xBD] dynamic length
 recvAppPacket 0xBD peer = do
     beg <- hGet peer 2
     let (Right plen,_) = runGet getWord16be beg
@@ -53,6 +53,8 @@ recvAppPacket 0xBF peer = do
     let (Right plen,_) = runGet getWord16be beg
     end <- hGet peer (fromIntegral $ plen - 3)
     return (beg `B.append` end)
+-- [0xD9] 199 bytes long
+recvAppPacket 0xD9 peer = hGet peer 198
 -- [0xEF] 21 bytes long
 recvAppPacket 0xEF peer = hGet peer 20
 recvAppPacket pid  _ = error ("received unknown app packet " ++ printf "0x%02x" pid)

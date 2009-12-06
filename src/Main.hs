@@ -114,8 +114,8 @@ localhost = unsafePerformIO (inet_addr "127.0.0.1")
 
 setupLogging :: IO ()
 setupLogging = do
-    updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel DEBUG)
-    std <- verboseStreamHandler stdout DEBUG
-    --updateGlobalLogger "RxPacket" (setHandlers [std])
-    --updateGlobalLogger "TxPacket" (setHandlers [std])
+    std <- verboseStreamHandler stdout INFO
+    updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel INFO)
+    -- updateGlobalLogger "RxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)
+    -- updateGlobalLogger "TxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)
     updateGlobalLogger rootLoggerName (setHandlers [std])

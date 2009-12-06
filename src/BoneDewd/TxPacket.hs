@@ -46,6 +46,7 @@ data TxPacket
     | MoveAccept Word8 MobNotoriety
     | OpenPaperDoll Serial String MobStatus
     | Pong Word8
+    | SetWarMode WarMode
     deriving Show
         
 data AccountLoginFailReason
@@ -173,6 +174,16 @@ build (MoveAccept seqId n) =
 -- [0x55] LoginComplete - 1 byte long
 build LoginComplete =
     RawPacket (lazy2strict (runPut (putWord8 0x55)))
+-- [0x72] SetWarMode - 5 bytes long
+build (SetWarMode m) =
+    RawPacket (lazy2strict raw)
+    where raw = runPut $ do
+              putWord8 0x72
+              putWord8 (fromIntegral (fromEnum m)) -- warmode flag
+              -- always these values according to http://docs.polserver.com/packets/index.php?Packet=0x72
+              putWord8 0x00
+              putWord8 0x32
+              putWord8 0x00
 -- [0x73] Ping - 2 bytes long
 build (Pong seqid) =
     RawPacket (lazy2strict raw)

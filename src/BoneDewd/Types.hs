@@ -79,6 +79,18 @@ instance Enum MobStatus where
               d | mobWarMode           = 0x40
                 | otherwise            = 0x00
 
+data WarMode
+    = Peace
+    | War
+    deriving Show
+    
+
+instance Enum WarMode where
+    fromEnum Peace = 0x00
+    fromEnum War   = 0x01
+    toEnum 0x00 = Peace
+    toEnum 0x01 = War
+
 data MobNotoriety
     = Innocent -- Blue
     | Friend -- Green

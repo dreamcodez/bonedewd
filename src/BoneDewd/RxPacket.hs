@@ -51,6 +51,7 @@ data RxPacket
     | PopupEntrySelection
         { charId :: Word32,
           entryId :: Word8 }
+    | RequestWarMode WarMode
     | ScreenSize Word16 Word16
     | UseRequest Serial
     deriving Show
@@ -87,6 +88,8 @@ parseApp 0x09 raw =
     where getter = do
               skip 1
               Right . LookRequest . Serial <$> getWord32be
+-- [0x2C] IgnoredPacket (Resurrection Menu? / RunUO ignores it)
+parseApp 0x2C _ = Right IgnoredPacket
 -- [0x34] GetPlayerStatus
 parseApp 0x34 raw =
     runGet getter (strict2lazy raw)
@@ -109,6 +112,12 @@ parseApp 0x5D raw =
               s <- getWord32be
               i <- getWord32be
               return $ Right (CharacterLoginRequest n f c s i)
+-- [0x72] RequestWarMode
+parseApp 0x72 raw = 
+    runGet getter (strict2lazy raw)
+    where getter = do
+              skip 1
+              Right . RequestWarMode . toEnum . fromIntegral <$> getWord8
 -- [0x73] Ping
 parseApp 0x73 raw =
     Right (Ping seqid) 
@@ -145,7 +154,7 @@ parseApp 0xBD raw =
               skip 3
               s <- getFixedStringNul (plen - 3) -- version string
               return $ Right (ClientVersion s)
--- [0xBF]
+-- [0xBF] generalized packet
 parseApp 0xBF raw = 
     runGet getter (strict2lazy raw)
     where plen = B.length raw

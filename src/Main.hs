@@ -105,6 +105,8 @@ handleRx peer (Rx.MoveRequest _ s _) = do
     sendPacket InGameState peer (Tx.MoveAccept s Innocent)
 handleRx peer Rx.PaperDollRequest = do
     sendPacket InGameState peer (Tx.OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
+handleRx peer (Rx.RequestWarMode wm) = do
+    sendPacket InGameState peer (Tx.SetWarMode wm)
 handleRx _ _ = return ()
 
 me :: Mobile

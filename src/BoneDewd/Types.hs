@@ -59,6 +59,18 @@ instance Enum RunningOrWalking where
             0x80 -> Running
             0x00 -> Walking
 
+data FontCode
+    = FontCode Word16
+    deriving Show
+    
+data Hue
+    = Hue Word16
+    deriving Show
+    
+data Language
+    = Language String
+    deriving Show
+
 data MobStatus
     = MobStatus
         { mobCanAlterPaperDoll :: Bool,

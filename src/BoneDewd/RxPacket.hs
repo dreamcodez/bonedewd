@@ -6,6 +6,8 @@ import Control.Applicative ((<$>))
 --import Data.Binary
 import Data.Binary.Get
 import Data.Bits
+import qualified Data.Text as T
+import Data.Text.Encoding
 import qualified Data.ByteString as B
 import Data.Word
 import BoneDewd.RawPacket
@@ -24,6 +26,7 @@ data RxPacket
           verRev :: Word32,
           verProto :: Word32 }
     | ClientVersion String
+    | ClosedStatusGump Serial
     | AccountLoginRequest
         { acctUser :: String,
           acctPass :: String }
@@ -34,6 +37,8 @@ data RxPacket
     | GetPlayerStatus
         { pType :: Word8,
           pSerial :: Word32 }
+    | GuildButton
+    | HelpButton
     | IgnoredPacket
     | CharacterLoginRequest
         { charName :: String,
@@ -51,8 +56,10 @@ data RxPacket
     | PopupEntrySelection
         { charId :: Word32,
           entryId :: Word8 }
+    | QuestButton
     | RequestWarMode WarMode
     | ScreenSize Word16 Word16
+    | SpeechRequest Word8 Hue FontCode Language T.Text
     | UseRequest Serial
     deriving Show
 
@@ -139,6 +146,8 @@ parseApp 0x91 raw =
               u <- getFixedStringNul 30 -- user
               p <- getFixedStringNul 30 -- password
               return $ Right (GameLoginRequest k u p)
+-- [0x9B] HelpButton
+parseApp 0x9B _ = Right HelpButton
 -- [0xA0] ServerSelect
 parseApp 0xA0 raw =
     runGet getter (strict2lazy raw)
@@ -146,6 +155,20 @@ parseApp 0xA0 raw =
               skip 1
               i <- getWord8 -- index of server that was selected   
               return $ Right (ServerSelect (fromIntegral i))
+-- [0xAD] SpeechRequest
+parseApp 0xAD raw =
+    runGet getter (strict2lazy raw)
+    where getter = do
+              skip 3
+              t <- getWord8 -- speech type
+              hue <- Hue <$> getWord16be -- color
+              font <- FontCode <$> getWord16be -- font
+              lang <-  Language <$> getFixedStringNul 4 -- language
+              -- decode leaves the nul, so need to take it out...
+              txt <- decodeUtf16BE <$> getFixedByteString strLen
+              let txt' = T.take (T.length txt - 1) txt
+              return $ Right (SpeechRequest t hue font lang txt')
+          strLen = B.length raw - 12
 -- [0xBD] ClientVersion
 parseApp 0xBD raw = 
     runGet getter (strict2lazy raw)
@@ -170,6 +193,9 @@ parseApp 0xBF raw =
                   0x0B -> do -- ClientLanguage
                       l <- getFixedString 3
                       return $ Right (ClientLanguage l)
+                  0x0C -> do -- ClosedStatusGump
+                      s <- Serial <$> getWord32be
+                      return $ Right (ClosedStatusGump s)
                   0x0F -> do -- PopupEntrySelection
                       cid <- getWord32be
                       eid <- getWord8 -- i think this is right, penultima says word16 tho..
@@ -177,6 +203,20 @@ parseApp 0xBF raw =
                   0x24 -> do -- unknown. UOSE Introduced (http://docs.polserver.com/packets/index.php?Packet=0xBF)
                       return (Right IgnoredPacket)
                   _ -> return $ Left ("don't know how to parse subcommand of 0xBF: " ++ printf "0x%02x" subcmd ++ "\n" ++ fmtHex raw)
+-- [0xD7] generalized AOS packet
+parseApp 0xD7 raw = 
+    runGet getter (strict2lazy raw)
+    where plen = B.length raw
+          getter = do
+              skip 3
+              _pserial <- getWord32be
+              subcmd <- getWord16be
+              case subcmd of
+                  0x28 -> do -- GuildButton
+                      return (Right GuildButton)
+                  0x32 -> do -- QuestButton
+                      return (Right QuestButton)
+                  _ -> return $ Left ("don't know how to parse subcommand of 0xD7: " ++ printf "0x%02x" subcmd ++ "\n" ++ fmtHex raw)
 -- [0xD9] IgnoredPacket (unused system/video/hw info)
 parseApp 0xD9 _ = Right IgnoredPacket
 -- [0xEF] ClientLoginSeed
@@ -190,4 +230,4 @@ parseApp 0xEF raw =
               verC <- getWord32be
               verD <- getWord32be
               return $ Right (ClientLoginSeed seed verA verB verC verD)
-parseApp pid raw = Left ("don't know how to parse packet: " ++ printf "0x%02x" pid ++ "\n" ++ fmtHex raw)
+parseApp pid raw = Left ("don't know how to parse packet: " ++ printf "0x%02X" pid ++ "\n" ++ fmtHex raw)

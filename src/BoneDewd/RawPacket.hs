@@ -53,25 +53,31 @@ recvAppPacket 0x73 peer = hGet peer 1
 recvAppPacket 0x80 peer = hGet peer 61
 -- [0x91] 65 bytes long
 recvAppPacket 0x91 peer = hGet peer 64
+-- [0x9B] 258 bytes long
+recvAppPacket 0x9B peer = hGet peer 257
+-- [0xAD] dynamic length
+recvAppPacket 0xAD peer = recvDynamicPacket peer
 -- [0xA0] 3 bytes long
 recvAppPacket 0xA0 peer = hGet peer 2
 -- [0xBD] dynamic length
-recvAppPacket 0xBD peer = do
-    beg <- hGet peer 2
-    let (Right plen,_) = runGet getWord16be beg
-    end <- hGet peer (fromIntegral $ plen - 3)
-    return (beg `B.append` end)
+recvAppPacket 0xBD peer = recvDynamicPacket peer
 -- [0xBF] dynamic length
-recvAppPacket 0xBF peer = do
-    beg <- hGet peer 2
-    let (Right plen,_) = runGet getWord16be beg
-    end <- hGet peer (fromIntegral $ plen - 3)
-    return (beg `B.append` end)
+recvAppPacket 0xBF peer = recvDynamicPacket peer
+-- [0xD7] dynamic length
+recvAppPacket 0xD7 peer = recvDynamicPacket peer
 -- [0xD9] 199 bytes long
 recvAppPacket 0xD9 peer = hGet peer 198
 -- [0xEF] 21 bytes long
 recvAppPacket 0xEF peer = hGet peer 20
-recvAppPacket pid  _ = error ("received unknown app packet " ++ printf "0x%02x" pid)
+recvAppPacket pid  _ = error ("received unknown app packet " ++ printf "0x%02X" pid)
+
+-- works for common pattern where a ushort is the 2nd and 3rd byte which specifies the length
+recvDynamicPacket :: Handle -> IO B.ByteString
+recvDynamicPacket peer = do
+    beg <- hGet peer 2
+    let (Right plen,_) = runGet getWord16be beg
+    end <- hGet peer (fromIntegral $ plen - 3)
+    return (beg `B.append` end)
 
 sendRawPacket :: SessionState -> Handle -> RawPacket -> IO ()
 sendRawPacket AccountLoginState = sendUncompressedRawPacket

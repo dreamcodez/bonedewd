@@ -33,6 +33,8 @@ recvRawPacket _ peer = do
 recvAppPacket :: Word8 -> Handle -> IO B.ByteString
 -- [0x00] 104 bytes long
 recvAppPacket 0x00 peer = hGet peer 103
+-- [0x01] 5 bytes long
+recvAppPacket 0x01 peer = hGet peer 4
 -- [0x02] 7 bytes long
 recvAppPacket 0x02 peer = hGet peer 6
 -- [0x06] 5 bytes long
@@ -53,12 +55,16 @@ recvAppPacket 0x73 peer = hGet peer 1
 recvAppPacket 0x80 peer = hGet peer 61
 -- [0x91] 65 bytes long
 recvAppPacket 0x91 peer = hGet peer 64
+-- [0x98] 7 bytes long
+recvAppPacket 0x98 peer = hGet peer 6
 -- [0x9B] 258 bytes long
 recvAppPacket 0x9B peer = hGet peer 257
 -- [0xAD] dynamic length
 recvAppPacket 0xAD peer = recvDynamicPacket peer
 -- [0xA0] 3 bytes long
 recvAppPacket 0xA0 peer = hGet peer 2
+-- [0xB5] 65 bytes long
+recvAppPacket 0xB5 peer = hGet peer 64
 -- [0xBD] dynamic length
 recvAppPacket 0xBD peer = recvDynamicPacket peer
 -- [0xBF] dynamic length

@@ -96,7 +96,7 @@ handleRx peer Rx.CharacterLoginRequest{..} = do
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
 handleRx peer (Rx.ClientLanguage _) = do
     sendPacket GameLoginState peer Tx.LoginComplete
-    --sendPacket GameLoginState peer (Tx.DrawPlayer me)
+    sendPacket GameLoginState peer (Tx.DrawPlayer me)
     --sendPacket GameLoginState peer (Tx.DrawMobile me)   
     sendPacket GameLoginState peer (Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False)
 handleRx peer (Rx.Ping seqid) = do
@@ -107,6 +107,7 @@ handleRx peer Rx.PaperDollRequest = do
     sendPacket InGameState peer (Tx.OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
 handleRx peer (Rx.RequestWarMode wm) = do
     sendPacket InGameState peer (Tx.SetWarMode wm)
+handleRx peer (Rx.RequestStatus _) = sendPacket GameLoginState peer meStatusBar
 handleRx _ _ = return ()
 
 me :: Mobile
@@ -116,6 +117,9 @@ me =
 
 myStatus = (MobStatus True False False False)
 mySerial = Serial 12345
+
+meStatusBar = Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False
+
 meStats :: MobileStats
 meStats = MobileStats
     { statStr = 100,

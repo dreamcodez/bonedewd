@@ -27,6 +27,7 @@ data RxPacket
           verProto :: Word32 }
     | ClientVersion String
     | ClosedStatusGump Serial
+    | DisconnectNotification
     | AccountLoginRequest
         { acctUser :: String,
           acctPass :: String }
@@ -34,9 +35,6 @@ data RxPacket
         { keyUsed :: Word32,
           acctUser :: String,
           acctPass :: String }
-    | GetPlayerStatus
-        { pType :: Word8,
-          pSerial :: Word32 }
     | GuildButton
     | HelpButton
     | IgnoredPacket
@@ -57,6 +55,8 @@ data RxPacket
         { charId :: Word32,
           entryId :: Word8 }
     | QuestButton
+    | RequestStatus Serial
+    | RequestSkills Serial
     | RequestWarMode WarMode
     | ScreenSize Word16 Word16
     | SpeechRequest Word8 Hue FontCode Language T.Text
@@ -97,14 +97,17 @@ parseApp 0x09 raw =
               Right . LookRequest . Serial <$> getWord32be
 -- [0x2C] IgnoredPacket (Resurrection Menu? / RunUO ignores it)
 parseApp 0x2C _ = Right IgnoredPacket
--- [0x34] GetPlayerStatus
+-- [0x34] RequestStatus / RequestSkills
 parseApp 0x34 raw =
     runGet getter (strict2lazy raw)
     where getter = do
               skip 5
               t <- getWord8 -- type
-              s <- getWord32be
-              return $ Right (GetPlayerStatus t s)
+              s <- Serial <$> getWord32be
+              return $ case t of
+                           0x04 -> Right (RequestStatus s)
+                           0x05 -> Right (RequestSkills s)
+                           _    -> Left "unknown type for app packet 0x34"
 -- [0x5D] CharacterLoginRequest
 parseApp 0x5D raw =
     runGet getter (strict2lazy raw)
@@ -160,6 +163,7 @@ parseApp 0xAD raw =
     runGet getter (strict2lazy raw)
     where getter = do
               skip 3
+              -- FIXME: is braindead about keywords
               t <- getWord8 -- speech type
               hue <- Hue <$> getWord16be -- color
               font <- FontCode <$> getWord16be -- font
@@ -169,6 +173,8 @@ parseApp 0xAD raw =
               let txt' = T.take (T.length txt - 1) txt
               return $ Right (SpeechRequest t hue font lang txt')
           strLen = B.length raw - 12
+-- [0xB5] for chat, Ignored
+parseApp 0xB5 _ = Right IgnoredPacket
 -- [0xBD] ClientVersion
 parseApp 0xBD raw = 
     runGet getter (strict2lazy raw)

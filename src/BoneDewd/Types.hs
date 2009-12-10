@@ -6,6 +6,7 @@ import qualified Data.ByteString as B
 import Data.Bits
 import Data.Int
 import Data.Word
+import System.IO (Handle(..))
 
 data Direction
     = DirNorth
@@ -187,9 +188,21 @@ data RawPacket =
 instance Show RawPacket where
     show (RawPacket raw) = fmtHex raw
 
+data Session
+    = Session Handle SessionState
+    deriving Show
+
+data Player
+    = Player Mobile MobileStats
+    deriving Show
+    
 data SessionState
     = AccountLoginState
     | PreGameLoginState
-    | GameLoginState
-    | InGameState
+    | GameLoginState 
+    | InGameState Player
+    deriving Show
+    
+data WorldState
+    = WorldState
     deriving Show

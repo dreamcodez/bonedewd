@@ -102,11 +102,11 @@ handleRx peer (Rx.ClientLanguage _) = do
 handleRx peer (Rx.Ping seqid) = do
     sendPacket GameLoginState peer (Tx.Pong seqid)
 handleRx peer (Rx.MoveRequest _ s _) = do
-    sendPacket InGameState peer (Tx.MoveAccept s Innocent)
+    sendPacket (InGameState myPlayer) peer (Tx.MoveAccept s Innocent)
 handleRx peer Rx.PaperDollRequest = do
-    sendPacket InGameState peer (Tx.OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
+    sendPacket (InGameState myPlayer)    peer (Tx.OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
 handleRx peer (Rx.RequestWarMode wm) = do
-    sendPacket InGameState peer (Tx.SetWarMode wm)
+    sendPacket (InGameState myPlayer) peer (Tx.SetWarMode wm)
 handleRx peer (Rx.RequestStatus _) = sendPacket GameLoginState peer meStatusBar
 handleRx _ _ = return ()
 
@@ -115,8 +115,10 @@ me =
     Mobile mySerial 0x192 255 britainLoc (MobDirection DirDown Running) myStatus Innocent []
     where britainLoc = Loc 1477 1638 50
 
+myPlayer = Player me meStats
 myStatus = (MobStatus True False False False)
 mySerial = Serial 12345
+
 
 meStatusBar = Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False
 

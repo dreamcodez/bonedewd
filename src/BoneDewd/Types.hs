@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 module BoneDewd.Types where
+import Control.Concurrent.Chan
 import Prelude hiding (Either(..))
 import BoneDewd.Util
 import qualified Data.ByteString as B
@@ -189,7 +190,7 @@ instance Show RawPacket where
     show (RawPacket raw) = fmtHex raw
 
 data Session
-    = Session Handle SessionState
+    = Session SessionState Handle
     deriving Show
 
 data Player
@@ -206,3 +207,14 @@ data SessionState
 data WorldState
     = WorldState
     deriving Show
+    
+data Event
+    = Ev
+    deriving Show
+
+-- the world channel, send events here...
+data WorldChan
+    = WorldChan (Chan Event)
+
+instance Show WorldChan where
+    show _ = "WorldChan"

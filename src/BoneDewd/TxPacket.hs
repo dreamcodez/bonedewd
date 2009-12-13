@@ -6,12 +6,10 @@ import Control.Monad
 import Data.Binary
 import Data.Binary.Put
 import Data.Int
-import Debug.Trace
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as LC
 import Network.Socket (HostAddress)
-import BoneDewd.RawPacket
 import BoneDewd.Types
 import BoneDewd.Util
 

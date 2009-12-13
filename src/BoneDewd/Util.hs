@@ -1,30 +1,12 @@
 {-# OPTIONS_GHC -Wall #-}
 module BoneDewd.Util where
 import Control.Applicative ((<$>))
-import Control.Concurrent
-import Control.Exception
 import Data.Binary.Get
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Int
-import Network.Socket (Socket, fdSocket)
-import Network.Socket.ByteString
-import System.IO.Unsafe
-import System.Posix.Types (Fd(..))
 import Text.Hexdump
-
-threadWaitRead' :: Socket -> IO ()
-threadWaitRead' = threadWaitRead . Fd . fdSocket
-
-recvExactly :: Socket -> Int -> IO B.ByteString
-{-
-recvExactly peer nbytes
-    | nbytes <= 0 = return B.empty
-    | otherwise = do res <- recv peer nbytes
-                     B.append res <$> recvExactly peer (nbytes - B.length res)
--}
-recvExactly = recv
 
 fmtHex :: BC.ByteString -> String
 fmtHex dta = hexdump 0 (BC.unpack dta)

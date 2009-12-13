@@ -3,14 +3,12 @@
 module BoneDewd.RxPacket where
 import Control.Applicative ((<$>))
 
---import Data.Binary
 import Data.Binary.Get
 import Data.Bits
 import qualified Data.Text as T
 import Data.Text.Encoding
 import qualified Data.ByteString as B
 import Data.Word
-import BoneDewd.RawPacket
 import BoneDewd.Types
 import BoneDewd.Util
 import Text.Printf
@@ -186,7 +184,7 @@ parseApp 0xBD raw =
 -- [0xBF] generalized packet
 parseApp 0xBF raw = 
     runGet getter (strict2lazy raw)
-    where plen = B.length raw
+    where _plen = B.length raw
           getter = do
               skip 3
               subcmd <- getWord16be
@@ -212,7 +210,7 @@ parseApp 0xBF raw =
 -- [0xD7] generalized AOS packet
 parseApp 0xD7 raw = 
     runGet getter (strict2lazy raw)
-    where plen = B.length raw
+    where _plen = B.length raw
           getter = do
               skip 3
               _pserial <- getWord32be

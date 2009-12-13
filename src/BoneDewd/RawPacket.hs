@@ -20,7 +20,7 @@ recvRawPacket PreGameLoginState peer = Just . RawPacket <$> hGet peer 4 -- auth 
 recvRawPacket _ peer = do
     beg <- hGet peer 1
     if beg == B.empty
-        -- half closed state, if this triggers then we probably ended the connection uncleanly
+        -- half closed state, if this triggers then we probably ended the connection
         then return Nothing
         -- continue processing packet
         else do

@@ -254,7 +254,6 @@ build ServerRedirect{..} =
               put (0x8C :: Word8) -- packet id
               putWord32le redirectHostAddress -- host address
               putWord16be (fromIntegral redirectHostPort)
-              --put (fromIntegral redirectHostPort :: Word16) -- host port
               put (fromIntegral encryptionKey :: Word32) -- encryption key
 -- [0xA8] ServerList - dynamic length
 build ServerList{..} =

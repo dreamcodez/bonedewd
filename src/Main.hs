@@ -153,7 +153,8 @@ serverList =
     Tx.ServerList [Tx.ServerListItem "Test Server" 50 8 localhost]
 
 localhost :: HostAddress
-localhost = unsafePerformIO (inet_addr "127.0.0.1")
+--localhost = unsafePerformIO (inet_addr "127.0.0.1")
+localhost = unsafePerformIO (inet_addr "10.0.1.7")
 
 setupLogging :: IO ()
 setupLogging = do

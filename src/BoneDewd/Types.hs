@@ -189,19 +189,14 @@ data RawPacket =
 instance Show RawPacket where
     show (RawPacket raw) = fmtHex raw
 
-data Session
-    = Session SessionState Handle
-    deriving Show
-
 data Player
     = Player Mobile MobileStats
     deriving Show
     
-data SessionState
-    = AccountLoginState
-    | PreGameLoginState
-    | GameLoginState 
-    | InGameState Player
+data ParseState
+    = LoginState
+    | PreGameState
+    | GameState 
     deriving Show
     
 data WorldState
@@ -218,3 +213,7 @@ data WorldChan
 
 instance Show WorldChan where
     show _ = "WorldChan"
+
+data PacketEncoding
+    = Compressed
+    | NotCompressed

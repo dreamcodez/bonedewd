@@ -8,23 +8,24 @@ import Network (Socket)
 import System.IO
 import System.Log.Logger
 
-recvPacket :: SessionState -> Handle -> IO (Maybe RxPacket)
+recvPacket :: ParseState -> Handle -> IO (Maybe (ParseState,RxPacket))
 recvPacket state peer = do
     mraw <- recvRawPacket state peer
     case mraw of
         Nothing -> return Nothing
         Just raw -> do
-            case parse state raw of
-                Right IgnoredPacket -> return (Just IgnoredPacket)
-                Right rx -> do
+            let pktres = parse state raw
+            case pktres of
+                Right (newstate,IgnoredPacket) -> return (Just (newstate,IgnoredPacket))
+                Right (newstate,rx) -> do
                     infoM "RxPacket" (show rx)
-                    return (Just rx)
+                    return (Just (newstate,rx))
                 Left err -> do
                     errorM "RxPacket" err
                     return Nothing
 
-sendPacket :: SessionState -> Handle -> TxPacket -> IO ()
-sendPacket state peer tx = do
-    sendRawPacket state peer (build tx)
+sendPacket :: PacketEncoding -> Handle -> TxPacket -> IO ()
+sendPacket enc peer tx = do
+    sendRawPacket enc peer (build tx)
     infoM "TxPacket" (show tx)
     return ()

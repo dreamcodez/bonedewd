@@ -61,11 +61,13 @@ data RxPacket
     | UseRequest Serial
     deriving Show
 
-parse :: SessionState -> RawPacket -> Either String RxPacket
-parse PreGameLoginState (RawPacket raw) =
-    Right $ ClientAuthKey (runGet getWord32be (strict2lazy raw))
-parse _ (RawPacket raw) =
-    parseApp pid raw
+parse :: ParseState -> RawPacket -> Either String (ParseState,RxPacket)
+parse PreGameState (RawPacket raw) =
+    Right $ (GameState,ClientAuthKey (runGet getWord32be (strict2lazy raw)))
+parse state (RawPacket raw) =
+    case parseApp pid raw of
+        Right pkt -> Right (state,pkt)
+        Left err  -> Left err
     where pid = runGet getWord8 (strict2lazy raw)
     
 parseApp :: Word8 -> B.ByteString -> Either String RxPacket

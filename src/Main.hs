@@ -59,12 +59,12 @@ handlePeer peer = do
     hSetBuffering peer (BlockBuffering (Just 4096))
     work `finally` hClose peer
     where work = do
-              let loop = do
-                      res <- recvPacket AccountLoginState peer
+              let loop state = do
+                      res <- recvPacket state peer
                       case res of
-                          Just rx -> handleRx peer rx >> loop
+                          Just (newstate,rx) -> handleRx peer rx >> loop newstate
                           Nothing -> infoM "LoginServer" "PEER CONNECTION CLOSED"
-              loop       
+              loop LoginState
 
 -- for game server
 handlePeer' :: Handle -> IO ()
@@ -72,42 +72,41 @@ handlePeer' peer = do
     hSetBuffering peer (BlockBuffering (Just 4096))
     work `finally` hClose peer
     where work = do
-              recvPacket PreGameLoginState peer -- after first packet we are no longer pre-game
-              let loop = do
-                      res <- recvPacket GameLoginState peer
+              let loop state = do
+                      res <- recvPacket state peer
                       case res of
-                          Just rx -> handleRx peer rx >> loop
+                          Just (newstate,rx) -> handleRx peer rx >> loop newstate
                           Nothing -> infoM "GameServer" "PEER CONNECTION CLOSED"
-              loop                          
+              loop PreGameState          
 
 handleRx :: Handle -> Rx.RxPacket -> IO ()
 handleRx peer Rx.AccountLoginRequest{..} = do
-    sendPacket AccountLoginState peer serverList
+    sendPacket NotCompressed peer serverList
     --sendPacket peer (Tx.build (Tx.AccountLoginFailed Tx.CommunicationProblem))
 handleRx peer Rx.ServerSelect{..} = do
-    sendPacket AccountLoginState peer (Tx.ServerRedirect localhost 3593 0)
+    sendPacket NotCompressed peer (Tx.ServerRedirect localhost 3593 0)
 handleRx peer Rx.GameLoginRequest{..} = do
-    sendPacket GameLoginState peer (Tx.CharacterList chars cities)
+    sendPacket Compressed peer (Tx.CharacterList chars cities)
     where chars = [Tx.CharacterListItem "Fatty Bobo" ""]
           cities = [Tx.StartingCity "Britain" "Da Ghetto"]
 handleRx peer Rx.CharacterLoginRequest{..} = do
-    sendPacket GameLoginState peer (Tx.LoginConfirm me 6144 4096)
+    sendPacket Compressed peer (Tx.LoginConfirm me 6144 4096)
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
 handleRx peer (Rx.ClientLanguage _) = do
-    sendPacket GameLoginState peer Tx.LoginComplete
-    sendPacket GameLoginState peer (Tx.DrawPlayer me)
+    sendPacket Compressed peer Tx.LoginComplete
+    sendPacket Compressed peer (Tx.DrawPlayer me)
     --sendPacket GameLoginState peer (Tx.DrawMobile me)   
-    sendPacket GameLoginState peer (Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False)
+    sendPacket Compressed peer (Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False)
 handleRx peer (Rx.Ping seqid) = do
-    sendPacket GameLoginState peer (Tx.Pong seqid)
+    sendPacket Compressed peer (Tx.Pong seqid)
 handleRx peer (Rx.MoveRequest _ s _) = do
-    sendPacket (InGameState myPlayer) peer (Tx.MoveAccept s Innocent)
+    sendPacket Compressed peer (Tx.MoveAccept s Innocent)
 handleRx peer Rx.PaperDollRequest = do
-    sendPacket (InGameState myPlayer)    peer (Tx.OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
+    sendPacket Compressed peer (Tx.OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
 handleRx peer (Rx.RequestWarMode wm) = do
-    sendPacket (InGameState myPlayer) peer (Tx.SetWarMode wm)
-handleRx peer (Rx.RequestStatus _) = sendPacket GameLoginState peer meStatusBar
+    sendPacket Compressed peer (Tx.SetWarMode wm)
+handleRx peer (Rx.RequestStatus _) = sendPacket Compressed peer meStatusBar
 handleRx _ _ = return ()
 
 me :: Mobile

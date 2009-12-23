@@ -7,7 +7,6 @@ import qualified Data.ByteString as B
 -- import Data.Binary
 import Data.Binary.Strict.Get
 import Data.Word
-import Network (Socket)
 import BoneDewd.Types
 import BoneDewd.Util
 import System.IO
@@ -15,8 +14,8 @@ import System.Log.Logger
 import Text.Printf
     
 -- when Nothing is returned, this means the connection is dead
-recvRawPacket :: SessionState -> Handle -> IO (Maybe RawPacket)
-recvRawPacket PreGameLoginState peer = Just . RawPacket <$> hGet peer 4 -- auth id
+recvRawPacket :: ParseState -> Handle -> IO (Maybe RawPacket)
+recvRawPacket PreGameState peer = Just . RawPacket <$> hGet peer 4 -- auth id
 recvRawPacket _ peer = do
     beg <- hGet peer 1
     if beg == B.empty
@@ -85,9 +84,9 @@ recvDynamicPacket peer = do
     end <- hGet peer (fromIntegral $ plen - 3)
     return (beg `B.append` end)
 
-sendRawPacket :: SessionState -> Handle -> RawPacket -> IO ()
-sendRawPacket AccountLoginState = sendUncompressedRawPacket
-sendRawPacket _                 = sendCompressedRawPacket
+sendRawPacket :: PacketEncoding -> Handle -> RawPacket -> IO ()
+sendRawPacket NotCompressed = sendUncompressedRawPacket
+sendRawPacket Compressed    = sendCompressedRawPacket
 
 sendUncompressedRawPacket :: Handle -> RawPacket -> IO ()
 sendUncompressedRawPacket peer (RawPacket raw) = do

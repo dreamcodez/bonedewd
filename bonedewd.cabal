@@ -29,6 +29,7 @@ library
                      binary,
                      binary-strict,
                      bytestring,
+                     containers,
                      hexdump,
                      hslogger,
                      network,

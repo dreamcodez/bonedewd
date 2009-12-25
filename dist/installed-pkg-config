@@ -1,0 +1,33 @@
+name: bonedewd
+version: 0.1
+license: BSD3
+copyright:
+maintainer: Matthew Elder <matt@mattelder.org>
+stability: provisional
+homepage: http://mattelder.org
+package-url:
+description: An experimental Ultima Online server emulator
+category: Games
+author: Matthew Elder <matt@mattelder.org>
+exposed: True
+exposed-modules:
+hidden-modules: BoneDewd.Compression BoneDewd.Network
+                BoneDewd.RawPacket BoneDewd.RxPacket BoneDewd.TxPacket
+                BoneDewd.Types BoneDewd.Util
+import-dirs: /home/mae/.cabal/lib/bonedewd-0.1/ghc-6.10.3
+library-dirs: /home/mae/.cabal/lib/bonedewd-0.1/ghc-6.10.3
+hs-libraries: HSbonedewd-0.1
+extra-libraries:
+extra-ghci-libraries:
+include-dirs:
+includes:
+depends: base-3.0.3.1 binary-0.5.0.1 binary-strict-0.4.6
+         bytestring-0.9.1.4 containers-0.2.0.1 hexdump-0.1 hslogger-1.0.7
+         network-2.2.1.3 text-0.7
+hugs-options:
+cc-options:
+ld-options:
+framework-dirs:
+frameworks:
+haddock-interfaces: /home/mae/.cabal/share/doc/bonedewd-0.1/html/bonedewd.haddock
+haddock-html: /home/mae/.cabal/share/doc/bonedewd-0.1/html

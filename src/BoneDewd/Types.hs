@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards #-}
 module BoneDewd.Types where
 import Control.Concurrent.Chan
 import Prelude hiding (Either(..))
@@ -123,6 +123,26 @@ instance Enum MobNotoriety where
     fromEnum Enemy        = 0x05
     fromEnum Murderer     = 0x06
     fromEnum Invulnerable = 0x07
+    
+data Season
+    = Spring
+    | Summer
+    | Fall
+    | Winter
+    | Desolation
+    deriving Show
+
+instance Enum Season where
+    fromEnum Spring     = 0x00
+    fromEnum Summer     = 0x01
+    fromEnum Fall       = 0x02
+    fromEnum Winter     = 0x03
+    fromEnum Desolation = 0x04
+    toEnum 0x00 = Spring
+    toEnum 0x01 = Summer
+    toEnum 0x02 = Fall
+    toEnum 0x03 = Winter
+    toEnum 0x04 = Desolation
 
 data MobEquipmentItem
     = MobEquipmentItem
@@ -217,3 +237,7 @@ instance Show WorldChan where
 data PacketEncoding
     = Compressed
     | NotCompressed
+
+newtype Gump
+    = Gump { unGump :: Word16 }
+    deriving Show

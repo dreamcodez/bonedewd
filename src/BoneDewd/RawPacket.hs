@@ -64,6 +64,8 @@ recvAppPacket 0xAD peer = recvDynamicPacket peer
 recvAppPacket 0xA0 peer = hGet peer 2
 -- [0xB5] 65 bytes long
 recvAppPacket 0xB5 peer = hGet peer 64
+-- [0xB8] dynamic length
+recvAppPacket 0xB8 peer = recvDynamicPacket peer
 -- [0xBD] dynamic length
 recvAppPacket 0xBD peer = recvDynamicPacket peer
 -- [0xBF] dynamic length

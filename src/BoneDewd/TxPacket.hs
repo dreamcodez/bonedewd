@@ -18,8 +18,9 @@ data TxPacket
     | CharacterList
         { characters :: [CharacterListItem],
           cities :: [StartingCity] }
-    | DrawPlayer Mobile
+    | DrawContainer Serial Gump
     | DrawMobile Mobile
+    | DrawPlayer Mobile
     | ServerList
         { servers :: [ServerListItem] }
     | ServerRedirect
@@ -35,8 +36,8 @@ data TxPacket
         }
     | AccountLoginFailed
         { reason :: AccountLoginFailReason }
-    | LoginComplete
-    | LoginConfirm
+    | CharacterLoginComplete
+    | CharacterLoginConfirm
         { loginMobile :: Mobile,
           mapWidth :: Word16,
           mapHeight :: Word16
@@ -44,7 +45,13 @@ data TxPacket
     | MoveAccept Word8 MobNotoriety
     | OpenPaperDoll Serial String MobStatus
     | Pong Word8
+    | SetLightLevel Word8
+    | SetSeason
+        { season :: Season,
+          seasonPlaySound :: Bool
+        }
     | SetWarMode WarMode
+    | SupportedFeatures Word32
     deriving Show
         
 data AccountLoginFailReason
@@ -122,8 +129,8 @@ build StatusBarInfo{sbSerial,sbName,sbStats,sbTithe,sbCanChangeName} =
               putWord16be statMaxDmg
               putWord32be sbTithe
 
--- [0x1B] LoginConfirm - 37 bytes long
-build LoginConfirm{..} =
+-- [0x1B] CharacterLoginConfirm - 37 bytes long
+build CharacterLoginConfirm{..} =
     assert (L.length raw == fromIntegral pLen)
     RawPacket (lazy2strict raw)
     where pLen = 37
@@ -169,8 +176,24 @@ build (MoveAccept seqId n) =
               putWord8 0x22
               putWord8 seqId
               putWord8 (fromIntegral(fromEnum n))
--- [0x55] LoginComplete - 1 byte long
-build LoginComplete =
+-- [0x24] DrawContainer - 7 bytes long
+build (DrawContainer s g) =
+    RawPacket (lazy2strict raw)
+    where raw = runPut $ do
+              putWord8 0x24
+              putWord32be (unSerial s)
+              putWord16be (unGump g)
+-- [0x4F] SetLightLevel - 2 bytes long
+-- range of level is 0x00 (day) to 0x1F (black)
+-- OSI night is 0x09
+-- (from http://docs.polserver.com)
+build (SetLightLevel l) =
+    RawPacket (lazy2strict raw)
+    where raw = runPut $ do
+              putWord8 0x4F
+              putWord8 l
+-- [0x55] CharacterLoginComplete - 1 byte long
+build CharacterLoginComplete =
     RawPacket (lazy2strict (runPut (putWord8 0x55)))
 -- [0x72] SetWarMode - 5 bytes long
 build (SetWarMode m) =
@@ -271,7 +294,8 @@ build ServerList{..} =
               mapM put (truncString name 32) -- name of server
               put (fromIntegral percentFull :: Word8) -- percentage full
               put (fromIntegral timeZone :: Word8) -- timezone
-              putWord32be serverListHostAddress -- host address
+              --putWord32be serverListHostAddress -- host address
+              putWord32le serverListHostAddress -- host address
           rawServers = map rawServer (zip servers [0..])
           raw = L.concat (rawTop : rawServers)
 -- [0xA9] CharacterList - dynamic length
@@ -301,3 +325,17 @@ build CharacterList{..} =
           rawCities = map rawCity (zip cities [0..])
           rawBottom = runPut $ put (0x00 :: Word32) -- flags
           raw = L.concat ([rawTop] ++ rawChars ++ [rawCityTop] ++ rawCities ++ [rawBottom])
+-- [0xB9] SetSeason - 5 bytes long
+build (SupportedFeatures flags) = 
+    RawPacket (lazy2strict raw)
+    where raw = runPut $ do
+              putWord8 0xB9
+              putWord32be flags
+-- [0xBC] SetSeason - 3 bytes long
+build SetSeason{season,seasonPlaySound} = 
+    RawPacket (lazy2strict raw)
+    where pLen = 3
+          raw = runPut $ do
+              putWord8 0xBC
+              putWord8 (fromIntegral $ fromEnum season)
+              putWord8 (fromIntegral $ fromEnum seasonPlaySound)

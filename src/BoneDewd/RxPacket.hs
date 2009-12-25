@@ -48,6 +48,8 @@ data RxPacket
           moveSeq :: Word8,
           moveKey :: Word32 }
     | PaperDollRequest
+    -- | 7.0.3.0: The client pings the server roughly every minute, sequence
+    -- is always 0 in my testing
     | Ping Word8
     | PopupEntrySelection
         { charId :: Word32,

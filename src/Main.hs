@@ -1,11 +1,13 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE RecordWildCards #-}
 module Main where
+import BoneDewd.Client
 import BoneDewd.Network
 import qualified BoneDewd.RxPacket as Rx
 import qualified BoneDewd.TxPacket as Tx
 import BoneDewd.Types
 import BoneDewd.Util
+import BoneDewd.World
 import Control.Applicative ((<$>))
 import Control.Concurrent
 import Control.Exception
@@ -34,12 +36,19 @@ main = do
     forkIO $ loginServer
     forkIO $ gameServer
     waitForTermination
-
+{-
 loginServer = 
     bracket
         (listenOn (PortNumber 2593))
         sClose
         (forever . loginAccept)
+-}
+
+loginServer = do
+    svc <- listenOn (PortNumber 2593)
+    loginChan <- startLoginManager
+    let state = newClientManagerState loginChan
+    loginAcceptLoop state svc `finally` sClose svc
 
 gameServer = 
     bracket
@@ -47,8 +56,16 @@ gameServer =
         sClose
         (forever . gameAccept)
 
-loginAccept :: Socket -> IO ()
+{-
+loginAccept :: ClientManagerState -> (Handle,HostName,PortNumber) -> IO ()
 loginAccept service = accept service >>= \(peer,_,_) -> forkIO (handlePeer peer) >> return ()
+-}
+
+loginAcceptLoop :: ClientManagerState -> Socket -> IO ()
+loginAcceptLoop state svc = do
+    newState <- (accept svc >>= initLoginClient state)
+    loginAcceptLoop newState svc
+    
 
 gameAccept :: Socket -> IO ()
 gameAccept service = accept service >>= \(peer,_,_) -> forkIO (handlePeer' peer) >> return ()
@@ -90,14 +107,18 @@ handleRx peer Rx.GameLoginRequest{..} = do
     where chars = [Tx.CharacterListItem "Fatty Bobo" ""]
           cities = [Tx.StartingCity "Britain" "Da Ghetto"]
 handleRx peer Rx.CharacterLoginRequest{..} = do
-    sendPacket Compressed peer (Tx.LoginConfirm me 6144 4096)
+    sendPacket Compressed peer (Tx.CharacterLoginConfirm me 6144 4096)
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
     -- sendPacket GameLoginState peer (Tx.DrawPlayer me)
-handleRx peer (Rx.ClientLanguage _) = do
-    sendPacket Compressed peer Tx.LoginComplete
-    sendPacket Compressed peer (Tx.DrawPlayer me)
-    --sendPacket GameLoginState peer (Tx.DrawMobile me)   
-    sendPacket Compressed peer (Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False)
+    sendPacket Compressed peer Tx.CharacterLoginComplete
+    --sendPacket Compressed peer (Tx.SupportedFeatures 0x80FF)
+    --sendPacket Compressed peer (Tx.DrawPlayer me)
+    --sendPacket Compressed peer (Tx.SetSeason Summer True)
+    sendPacket Compressed peer (Tx.DrawMobile me) 
+    --sendPacket Compressed peer (Tx.SetLightLevel 0x00)  
+    --sendPacket Compressed peer (Tx.DrawContainer (Serial 54321) (Gump 0x3c)) -- send backpack   
+    --sendPacket Compressed peer (Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False)
+--handleRx peer (Rx.ClientLanguage _) = do  
 handleRx peer (Rx.Ping seqid) = do
     sendPacket Compressed peer (Tx.Pong seqid)
 handleRx peer (Rx.MoveRequest _ s _) = do
@@ -111,15 +132,15 @@ handleRx _ _ = return ()
 
 me :: Mobile
 me =
-    Mobile mySerial 0x192 255 britainLoc (MobDirection DirDown Running) myStatus Innocent []
+    Mobile mySerial 0x190 1655 britainLoc (MobDirection DirDown Running) myStatus Innocent []
     where britainLoc = Loc 1477 1638 50
 
 myPlayer = Player me meStats
 myStatus = (MobStatus True False False False)
-mySerial = Serial 12345
+mySerial = Serial 123456
 
 
-meStatusBar = Tx.StatusBarInfo (Serial 12345) "Fatty Bobo" meStats 0 False
+meStatusBar = Tx.StatusBarInfo mySerial "Fatty Bobo" meStats 0 False
 
 meStats :: MobileStats
 meStats = MobileStats
@@ -148,17 +169,9 @@ meStats = MobileStats
       statResistEnergy = 32
     }
 
-serverList :: Tx.TxPacket
-serverList =
-    Tx.ServerList [Tx.ServerListItem "Test Server" 50 8 localhost]
-
-localhost :: HostAddress
---localhost = unsafePerformIO (inet_addr "127.0.0.1")
-localhost = unsafePerformIO (inet_addr "10.0.1.7")
-
 setupLogging :: IO ()
 setupLogging = do
-    std <- verboseStreamHandler stdout INFO
+    std <- verboseStreamHandler stdout DEBUG
     updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel DEBUG)
     -- updateGlobalLogger "RxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)
     -- updateGlobalLogger "TxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)

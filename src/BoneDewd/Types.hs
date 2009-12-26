@@ -248,6 +248,7 @@ data SpeechType
     | EmoteSpeech
     | SystemSpeech
     | MessageSpeech
+    | WhisperSpeech
     | YellSpeech
     | SpellSpeech
     | GuildSpeech
@@ -261,6 +262,7 @@ instance Enum SpeechType where
     fromEnum EmoteSpeech     = 0x02
     fromEnum SystemSpeech    = 0x06
     fromEnum MessageSpeech   = 0x07
+    fromEnum WhisperSpeech   = 0x08
     fromEnum YellSpeech      = 0x09
     fromEnum SpellSpeech     = 0x0A
     fromEnum GuildSpeech     = 0x0D
@@ -272,6 +274,7 @@ instance Enum SpeechType where
                    0x02 -> EmoteSpeech
                    0x06 -> SystemSpeech
                    0x07 -> MessageSpeech
+                   0x08 -> WhisperSpeech
                    0x09 -> YellSpeech
                    0x0A -> SpellSpeech
                    0x0D -> GuildSpeech

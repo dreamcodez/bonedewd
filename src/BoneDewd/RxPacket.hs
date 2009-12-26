@@ -15,6 +15,7 @@ import Text.Printf
 
 data RxPacket
     = ServerSelect Int
+    | ChatButton
     | ClientAuthKey Word32
     | ClientLanguage String
     | ClientLoginSeed
@@ -191,8 +192,8 @@ parseApp 0xAD raw =
                       -- decode leaves the nul, so need to take it out...
                       let txt' = T.take (T.length txt - 1) txt
                       return $ Right (SpeechRequest t hue font lang txt')
--- [0xB5] for chat, Ignored
-parseApp 0xB5 _ = Right IgnoredPacket
+-- [0xB5] ChatButton
+parseApp 0xB5 _ = Right ChatButton
 -- [0xBD] ClientVersion
 parseApp 0xBD raw = 
     runGet getter (strict2lazy raw)

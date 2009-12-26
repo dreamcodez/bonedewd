@@ -266,15 +266,14 @@ instance Enum SpeechType where
     fromEnum GuildSpeech     = 0x0D
     fromEnum AllianceSpeech  = 0x0E
     fromEnum CommandSpeech   = 0x0F
-    toEnum 0x00 = NormalSpeech
-    toEnum 0x01 = BroadcastSpeech
-    toEnum 0x02 = EmoteSpeech
-    toEnum 0x06 = SystemSpeech
-    toEnum 0x07 = MessageSpeech
-    toEnum 0x09 = YellSpeech
-    toEnum 0x0A = SpellSpeech
-    toEnum 0x0D = GuildSpeech
-    toEnum 0x0E = AllianceSpeech
-    toEnum 0x0F = CommandSpeech
-    toEnum 0xC0 = NormalSpeech -- keywords speech is normalized
-
+    toEnum b = case 0x0F .&. b of -- remove non-relevant flag bits
+                   0x00 -> NormalSpeech
+                   0x01 -> BroadcastSpeech
+                   0x02 -> EmoteSpeech
+                   0x06 -> SystemSpeech
+                   0x07 -> MessageSpeech
+                   0x09 -> YellSpeech
+                   0x0A -> SpellSpeech
+                   0x0D -> GuildSpeech
+                   0x0E -> AllianceSpeech
+                   0x0F -> CommandSpeech

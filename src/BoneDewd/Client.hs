@@ -30,6 +30,7 @@ data ClientManagerState
 newClientManagerState :: Chan (Client,Rx.RxPacket) -> ClientManagerState
 newClientManagerState ch = ClientManagerState M.empty 1 ch
 
+
 initLoginClient :: ClientManagerState -> (Handle,HostName,PortNumber) -> IO ClientManagerState
 initLoginClient (ClientManagerState clients next_cid worldChan) (peer,host,_) = do
     hSetBuffering peer (BlockBuffering (Just 4096)) -- enable buffering yeah!
@@ -43,10 +44,20 @@ initLoginClient (ClientManagerState clients next_cid worldChan) (peer,host,_) = 
     where cleanup = do
               hClose peer
               infoM "LoginServer" "PEER CONNECTION CLOSED"
-          
 
--- initGameClient :: ClientManagerState -> (Handle,HostName,PortNumber) -> IO (ClientManagerState,Client)
--- initGameClient state 
+initGameClient :: ClientManagerState -> (Handle,HostName,PortNumber) -> IO ClientManagerState
+initGameClient (ClientManagerState clients next_cid worldChan) (peer,host,_) = do
+    hSetBuffering peer (BlockBuffering (Just 4096)) -- enable buffering yeah!
+    inbox <- newChan -- initialize client inbox
+    let newClient = Client host (writeChan inbox) (hClose peer)
+        newClients = M.insert next_cid newClient clients
+        newState = ClientManagerState newClients (next_cid + 1) worldChan
+    forkIO (clientReader PreGameState newClient peer worldChan `finally` cleanup)
+    forkIO (clientWriter Compressed peer inbox `finally` cleanup)
+    return newState -- return newstate
+    where cleanup = do
+              hClose peer
+              infoM "GameServer" "PEER CONNECTION CLOSED"
 
 -- async reads from client, sends to an outbox
 -- terminates when peer handle is closed, if the client has stopped sending, or if the packet cannot be parsed

@@ -9,7 +9,7 @@ import Control.Concurrent.Chan (Chan, newChan, readChan, writeChan)
 import Control.Exception (finally)
 import qualified Data.Map as M
 import Network (HostName, PortNumber)
-import System.IO (Handle, hClose, hIsClosed)
+import System.IO (BufferMode(..), Handle, hClose, hIsClosed, hSetBuffering)
 import System.Log.Logger
 
 newtype ClientId = ClientId Integer deriving (Eq,Num,Ord,Show)
@@ -32,13 +32,14 @@ newClientManagerState ch = ClientManagerState M.empty 1 ch
 
 initLoginClient :: ClientManagerState -> (Handle,HostName,PortNumber) -> IO ClientManagerState
 initLoginClient (ClientManagerState clients next_cid worldChan) (peer,host,_) = do
-    inbox <- newChan
+    hSetBuffering peer (BlockBuffering (Just 4096)) -- enable buffering yeah!
+    inbox <- newChan -- initialize client inbox
     let newClient = Client host (writeChan inbox) (hClose peer)
         newClients = M.insert next_cid newClient clients
         newState = ClientManagerState newClients (next_cid + 1) worldChan
     forkIO (clientReader LoginState newClient peer worldChan `finally` cleanup)
     forkIO (clientWriter NotCompressed peer inbox `finally` cleanup)
-    return newState
+    return newState -- return newstate
     where cleanup = do
               hClose peer
               infoM "LoginServer" "PEER CONNECTION CLOSED"

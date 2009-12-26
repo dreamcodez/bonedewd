@@ -35,13 +35,13 @@ library
                      network,
                      text
 
-    ghc-options: -threaded -Wall
+    ghc-options: -threaded -Wall -fno-ignore-asserts
 
 executable bonedewd-server
     hs-source-dirs: src
     c-sources:       src/compress.c
     main-is:        Main.hs
-    ghc-options: -threaded -Wall
+    ghc-options: -threaded -Wall -fno-ignore-asserts
 
 source-repository head
     type:     git

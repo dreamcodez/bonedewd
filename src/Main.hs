@@ -128,11 +128,13 @@ handleRx peer Rx.PaperDollRequest = do
 handleRx peer (Rx.RequestWarMode wm) = do
     sendPacket Compressed peer (Tx.SetWarMode wm)
 handleRx peer (Rx.RequestStatus _) = sendPacket Compressed peer meStatusBar
+handleRx peer (Rx.SpeechRequest t h f l txt) = do
+    sendPacket Compressed peer (Tx.SendUnicodeSpeech mySerial t h f l myName txt)
 handleRx _ _ = return ()
 
 me :: Mobile
 me =
-    Mobile mySerial 0x190 1655 britainLoc (MobDirection DirDown Running) myStatus Innocent []
+    Mobile mySerial 0x190 1002 britainLoc (MobDirection DirDown Running) myStatus Innocent [MobEquipmentItem (Serial 99999) 0x204F 0x16 137]
     where britainLoc = Loc 1477 1638 50
 
 myPlayer = Player me meStats
@@ -140,7 +142,8 @@ myStatus = (MobStatus True False False False)
 mySerial = Serial 123456
 
 
-meStatusBar = Tx.StatusBarInfo mySerial "Fatty Bobo" meStats 0 False
+meStatusBar = Tx.StatusBarInfo mySerial myName meStats 0 False
+myName = "Fatty Bobo"
 
 meStats :: MobileStats
 meStats = MobileStats

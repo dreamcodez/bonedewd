@@ -61,16 +61,16 @@ instance Enum RunningOrWalking where
             0x80 -> Running
             0x00 -> Walking
 
-data FontCode
-    = FontCode Word16
+data SpeechFont
+    = SpeechFont { unSpeechFont :: Word16 }
     deriving Show
     
 data Hue
-    = Hue Word16
+    = Hue { unHue :: Word16 }
     deriving Show
     
 data Language
-    = Language String
+    = Language { unLanguage :: String }
     deriving Show
 
 data MobStatus
@@ -146,7 +146,7 @@ instance Enum Season where
 
 data MobEquipmentItem
     = MobEquipmentItem
-        { equipSerial :: Word32,
+        { equipSerial :: Serial,
           equipGraphic :: Word16,
           equipLayer :: Word8,
           equipHue :: Word16 }
@@ -241,3 +241,40 @@ data PacketEncoding
 newtype Gump
     = Gump { unGump :: Word16 }
     deriving Show
+
+data SpeechType
+    = NormalSpeech
+    | BroadcastSpeech
+    | EmoteSpeech
+    | SystemSpeech
+    | MessageSpeech
+    | YellSpeech
+    | SpellSpeech
+    | GuildSpeech
+    | AllianceSpeech
+    | CommandSpeech
+    deriving Show
+
+instance Enum SpeechType where
+    fromEnum NormalSpeech    = 0x00
+    fromEnum BroadcastSpeech = 0x01
+    fromEnum EmoteSpeech     = 0x02
+    fromEnum SystemSpeech    = 0x06
+    fromEnum MessageSpeech   = 0x07
+    fromEnum YellSpeech      = 0x09
+    fromEnum SpellSpeech     = 0x0A
+    fromEnum GuildSpeech     = 0x0D
+    fromEnum AllianceSpeech  = 0x0E
+    fromEnum CommandSpeech   = 0x0F
+    toEnum 0x00 = NormalSpeech
+    toEnum 0x01 = BroadcastSpeech
+    toEnum 0x02 = EmoteSpeech
+    toEnum 0x06 = SystemSpeech
+    toEnum 0x07 = MessageSpeech
+    toEnum 0x09 = YellSpeech
+    toEnum 0x0A = SpellSpeech
+    toEnum 0x0D = GuildSpeech
+    toEnum 0x0E = AllianceSpeech
+    toEnum 0x0F = CommandSpeech
+    toEnum 0xC0 = NormalSpeech -- keywords speech is normalized
+

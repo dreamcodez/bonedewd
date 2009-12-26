@@ -5,7 +5,10 @@ import Control.Exception
 import Control.Monad
 import Data.Binary
 import Data.Binary.Put
+import Data.Bits ((.|.))
 import Data.Int
+import qualified Data.Text as T
+import Data.Text.Encoding
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Lazy.Char8 as LC
@@ -45,6 +48,15 @@ data TxPacket
     | MoveAccept Word8 MobNotoriety
     | OpenPaperDoll Serial String MobStatus
     | Pong Word8
+    | SendUnicodeSpeech
+        { speechSerial :: Serial,
+          speechType :: SpeechType,
+          speechHue :: Hue,
+          speechFont :: SpeechFont,
+          speechLanguage :: Language,
+          speechName :: String,
+          speechText :: T.Text
+        }
     | SetLightLevel Word8
     | SetSeason
         { season :: Season,
@@ -229,10 +241,10 @@ build (DrawMobile Mobile{..}) =
               put (fromIntegral (fromEnum mobStatus) :: Word8)
               put (fromIntegral (fromEnum mobNotoriety) :: Word8)
               forM_ mobEquipment $ \MobEquipmentItem{..} -> do
-                  put (equipSerial :: Word32)
-                  put (equipGraphic :: Word16)
-                  put (equipLayer :: Word8)
-                  put (equipHue :: Word16)
+                  putWord32be (unSerial equipSerial)
+                  putWord16be (equipGraphic .|. 0x8000) -- 0x8000 forces hue
+                  putWord8 equipLayer
+                  putWord16be equipHue
               put (0x00 :: Word32) -- end marker
 -- [0x82] AccountLoginFailed - 2 bytes long
 build AccountLoginFailed{..} =
@@ -325,6 +337,23 @@ build CharacterList{..} =
           rawCities = map rawCity (zip cities [0..])
           rawBottom = runPut $ put (0x00 :: Word32) -- flags
           raw = L.concat ([rawTop] ++ rawChars ++ [rawCityTop] ++ rawCities ++ [rawBottom])
+-- [0xAE] SendUnicodeSpeech - dynamic length
+build SendUnicodeSpeech{..} =
+    assert (B.length raw == fromIntegral pLen)
+    RawPacket raw
+    where pLen = 48 + (T.length speechText * 2) + 2
+          raw = lazy2strict rawHeaders `B.append` rawText
+          rawHeaders = runPut $ do
+              putWord8 0xAE -- packet id
+              putWord16be (fromIntegral pLen) -- packet len
+              putWord32be (unSerial speechSerial) -- serial
+              putWord16be 0xFFFF -- model, don't need this..
+              putWord8 (fromIntegral $ fromEnum speechType) -- type
+              putWord16be (unHue speechHue) -- hue
+              putWord16be (unSpeechFont speechFont) -- font
+              mapM_ put (truncString (unLanguage speechLanguage) 4) -- language 4 ascii bytes (w/ nul)
+              mapM_ put (truncString speechName 30) -- name of person speaking
+          rawText = (encodeUtf16BE speechText) `B.append` B.pack [0,0] -- null termination of unicode string
 -- [0xB9] SetSeason - 5 bytes long
 build (SupportedFeatures flags) = 
     RawPacket (lazy2strict raw)

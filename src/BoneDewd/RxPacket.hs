@@ -59,7 +59,7 @@ data RxPacket
     | RequestSkills Serial
     | RequestWarMode WarMode
     | ScreenSize Word16 Word16
-    | SpeechRequest Word8 Hue FontCode Language T.Text
+    | SpeechRequest SpeechType Hue SpeechFont Language T.Text
     | UseRequest Serial
     deriving Show
 
@@ -165,16 +165,32 @@ parseApp 0xAD raw =
     runGet getter (strict2lazy raw)
     where getter = do
               skip 3
-              -- FIXME: is braindead about keywords
-              t <- getWord8 -- speech type
+              rawType <- getWord8 -- rawtype, need to know if its 0xc0
+              let t = toEnum (fromIntegral rawType) -- speech type
               hue <- Hue <$> getWord16be -- color
-              font <- FontCode <$> getWord16be -- font
+              font <- SpeechFont <$> getWord16be -- font
               lang <-  Language <$> getFixedStringNul 4 -- language
-              -- decode leaves the nul, so need to take it out...
-              txt <- decodeUtf16BE <$> getFixedByteString strLen
-              let txt' = T.take (T.length txt - 1) txt
-              return $ Right (SpeechRequest t hue font lang txt')
-          strLen = B.length raw - 12
+              if rawType .&. 0xC0 == 0xC0
+                  -- need to parse keywords + ascii, then normalize to unicode
+                  then do
+                      keyLen <- getWord16be
+                      let keyLen' = shiftR keyLen 4 -- real len is 12 bit int
+                          keyBitsLeft = keyLen' * 12 - 4
+                          keyBytesLeft = (keyBitsLeft + (keyBitsLeft `mod` 8)) `div` 8
+                          strLen = B.length raw - (fromIntegral (14 + keyBytesLeft))
+                      -- skip the remaining keyword bytes
+                      skip (fromIntegral keyBytesLeft)
+                      txt <- decodeASCII <$> getFixedByteString strLen
+                      -- decode leaves the nul, so need to take it out...
+                      let txt' = T.take (T.length txt - 1) txt
+                      return $ Right (SpeechRequest t hue font lang txt')
+                  -- parse in standard unicode fashion
+                  else do
+                      let strLen = B.length raw - 12
+                      txt <- decodeUtf16BE <$> getFixedByteString strLen
+                      -- decode leaves the nul, so need to take it out...
+                      let txt' = T.take (T.length txt - 1) txt
+                      return $ Right (SpeechRequest t hue font lang txt')
 -- [0xB5] for chat, Ignored
 parseApp 0xB5 _ = Right IgnoredPacket
 -- [0xBD] ClientVersion

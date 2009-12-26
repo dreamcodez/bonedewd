@@ -93,7 +93,7 @@ sendRawPacket Compressed    = sendCompressedRawPacket
 sendUncompressedRawPacket :: Handle -> RawPacket -> IO ()
 sendUncompressedRawPacket peer (RawPacket raw) = do
     hPut peer raw
-    hFlush peer
+    hFlush peer -- flush to make realtime...
     debugM "RawPacket" ("SENT\n" ++ fmtHex raw)
 
 sendCompressedRawPacket :: Handle -> RawPacket -> IO ()

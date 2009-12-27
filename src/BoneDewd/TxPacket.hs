@@ -16,87 +16,6 @@ import Network.Socket (HostAddress)
 import BoneDewd.Types
 import BoneDewd.Util
 
-data TxPacket
-    = CharacterListAfterDelete [CharacterListItem]
-    | CharacterList
-        { characters :: [CharacterListItem],
-          cities :: [StartingCity] }
-    | DrawContainer Serial Gump
-    | DrawMobile Mobile
-    | DrawPlayer Mobile
-    | ServerList
-        { servers :: [ServerListItem] }
-    | ServerRedirect
-        { redirectHostAddress :: HostAddress,
-          redirectHostPort :: Int,
-          encryptionKey :: Int }
-    | StatusBarInfo
-        { sbSerial :: Serial,
-          sbName :: String,
-          sbStats :: MobileStats,
-          sbTithe :: Word32, -- tithing points
-          sbCanChangeName :: Bool
-        }
-    | AccountLoginFailed
-        { reason :: AccountLoginFailReason }
-    | CharacterLoginComplete
-    | CharacterLoginConfirm
-        { loginMobile :: Mobile,
-          mapWidth :: Word16,
-          mapHeight :: Word16
-        }
-    | MoveAccept Word8 MobNotoriety
-    | OpenPaperDoll Serial String MobStatus
-    | Pong Word8
-    | SendUnicodeSpeech
-        { speechSerial :: Serial,
-          speechType :: SpeechType,
-          speechHue :: Hue,
-          speechFont :: SpeechFont,
-          speechLanguage :: Language,
-          speechName :: String,
-          speechText :: T.Text
-        }
-    | SetLightLevel Word8
-    | SetSeason
-        { season :: Season,
-          seasonPlaySound :: Bool
-        }
-    | SetWarMode WarMode
-    | SupportedFeatures Word32
-    deriving Show
-        
-data AccountLoginFailReason
-    = IncorrectNameOrPassword
-    | SomeoneIsAlreadyUsingAccount
-    | YourAccountHasBeenBlocked
-    | YourAccountCredentialsAreInvalid
-    | CommunicationProblem
-    deriving Show
-
-data ServerListItem
-    = ServerListItem
-        { name :: String,
-          percentFull :: Int,
-          timeZone :: Int,
-          serverListHostAddress :: HostAddress
-        }
-    deriving Show
-
-data CharacterListItem
-    = CharacterListItem
-        { charName :: String,
-          charPass :: String
-        }
-    deriving Show
-
-data StartingCity
-    = StartingCity
-        { cityName :: String,
-          cityArea :: String
-        }
-    deriving Show
-
 build :: TxPacket -> RawPacket
 -- [0x11] StatusBarInfo - dynamic length
 -- I chose to standardize on the ML feature set (but not kr)
@@ -267,8 +186,8 @@ build (CharacterListAfterDelete characters) =
               put (fromIntegral pLen :: Word16) -- packet length
               put (fromIntegral numChars :: Word8) -- char count
           rawChar CharacterListItem{..} = runPut $ do
-              mapM_ put (truncString charName 30) -- name of char
-              mapM_ put (truncString charPass 30) -- pass of char
+              mapM_ put (truncString charListName 30) -- name of char
+              mapM_ put (truncString charListPass 30) -- pass of char
           rawChars = map rawChar characters
           raw = L.concat (rawTop : rawChars)
 -- [0x88] OpenPaperDoll - 66 bytes long
@@ -316,25 +235,25 @@ build CharacterList{..} =
     assert (L.length raw == fromIntegral pLen)  
     RawPacket (lazy2strict raw)
     where -- client expects you to pad the 'empty' characters
-          characters' = characters ++ (take (7 - numChars) (repeat (CharacterListItem "" "")))
-          numChars = length characters
+          characters' = charListChars ++ (take (7 - numChars) (repeat (CharacterListItem "" "")))
+          numChars = length charListChars
           numChars' = length characters'
-          numCities = length cities
+          numCities = length charListCities
           pLen = 9 + (numChars' * 60) + (numCities * 63)
           rawTop = runPut $ do
               put (0xA9 :: Word8) -- packet id
               put (fromIntegral pLen :: Word16) -- packet length
               put (fromIntegral numChars' :: Word8) -- char count
           rawChar CharacterListItem{..} = runPut $ do
-              mapM_ put (truncString charName 30) -- name of char
-              mapM_ put (truncString charPass 30) -- pass of char
+              mapM_ put (truncString charListName 30) -- name of char
+              mapM_ put (truncString charListPass 30) -- pass of char
           rawChars = map rawChar characters'
           rawCityTop = runPut $ put (fromIntegral numCities :: Word8) -- city count
           rawCity (StartingCity{..}, idx) = runPut $ do
               put (idx :: Word8) -- city index
               mapM_ put (truncString cityName 31) -- name of city
               mapM_ put (truncString cityArea 31) -- area of city
-          rawCities = map rawCity (zip cities [0..])
+          rawCities = map rawCity (zip charListCities [0..])
           rawBottom = runPut $ put (0x00 :: Word32) -- flags
           raw = L.concat ([rawTop] ++ rawChars ++ [rawCityTop] ++ rawCities ++ [rawBottom])
 -- [0xAE] SendUnicodeSpeech - dynamic length

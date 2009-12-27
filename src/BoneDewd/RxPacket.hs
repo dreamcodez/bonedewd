@@ -13,57 +13,6 @@ import BoneDewd.Types
 import BoneDewd.Util
 import Text.Printf
 
-data RxPacket
-    = ServerSelect Int
-    | ChatButton
-    | ClientAuthKey Word32
-    | ClientLanguage String
-    | ClientLoginSeed
-        { seed :: Word32,
-          verMajor :: Word32,
-          verMinor :: Word32,
-          verRev :: Word32,
-          verProto :: Word32 }
-    | ClientVersion String
-    | ClosedStatusGump Serial
-    | DisconnectNotification
-    | AccountLoginRequest
-        { acctUser :: String,
-          acctPass :: String }
-    | GameLoginRequest
-        { keyUsed :: Word32,
-          acctUser :: String,
-          acctPass :: String }
-    | GuildButton
-    | HelpButton
-    | IgnoredPacket
-    | CharacterLoginRequest
-        { charName :: String,
-          charClientFlag :: Word32,
-          charLoginCount :: Word32,
-          charSlotChosen :: Word32,
-          charClientIp :: Word32 }
-    | LookRequest Serial
-    | MoveRequest
-        { moveDir :: MobDirection,
-          moveSeq :: Word8,
-          moveKey :: Word32 }
-    | PaperDollRequest
-    -- | 7.0.3.0: The client pings the server roughly every minute, sequence
-    -- is always 0 in my testing
-    | Ping Word8
-    | PopupEntrySelection
-        { charId :: Word32,
-          entryId :: Word8 }
-    | QuestButton
-    | RequestStatus Serial
-    | RequestSkills Serial
-    | RequestWarMode WarMode
-    | ScreenSize Word16 Word16
-    | SpeechRequest SpeechType Hue SpeechFont Language T.Text
-    | UseRequest Serial
-    deriving Show
-
 parse :: ParseState -> RawPacket -> Either String (ParseState,RxPacket)
 parse PreGameState (RawPacket raw) =
     Right $ (GameState,ClientAuthKey (runGet getWord32be (strict2lazy raw)))

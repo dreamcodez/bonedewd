@@ -1,13 +1,18 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, RecordWildCards #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, NamedFieldPuns, RecordWildCards #-}
 module BoneDewd.Types where
-import Control.Concurrent.Chan
-import Prelude hiding (Either(..))
 import BoneDewd.Util
+import Control.Concurrent.Chan
 import qualified Data.ByteString as B
 import Data.Bits
 import Data.Int
+import qualified Data.Map as M
+import Data.Text as T
 import Data.Word
+import Network (HostName)
+import Network.Socket (HostAddress)
+import Prelude hiding (Either(..))
 import System.IO (Handle(..))
+
 
 data Direction
     = DirNorth
@@ -210,17 +215,17 @@ instance Show RawPacket where
     show (RawPacket raw) = fmtHex raw
 
 data Player
-    = Player Mobile MobileStats
+    = Player
+        { playerClient :: Client,
+          playerMobile :: Mobile,
+          playerStats :: MobileStats -- only if logged into a char
+        }
     deriving Show
     
 data ParseState
     = LoginState
     | PreGameState
     | GameState 
-    deriving Show
-    
-data WorldState
-    = WorldState
     deriving Show
     
 data Event
@@ -280,3 +285,162 @@ instance Enum SpeechType where
                    0x0D -> GuildSpeech
                    0x0E -> AllianceSpeech
                    0x0F -> CommandSpeech
+
+data WorldState
+    = WorldState
+        { worldPlayers :: M.Map ClientId Player }
+emptyWorldState = WorldState M.empty
+
+newtype ClientId = ClientId Integer deriving (Eq,Num,Ord,Show)
+
+data Client
+    = Client
+        { clientId :: ClientId,
+          clientHost :: HostName,
+          clientWrite :: TxPacket -> IO (),
+          clientDisconnect :: IO ()
+        }
+instance Show Client where
+    show Client{clientId,clientHost} =
+        "(Client (" ++ show clientId ++ ") " ++ show clientHost ++ ")"  
+
+data ClientManagerState
+    = ClientManagerState
+        { mgrClients :: M.Map ClientId Client,
+          mgrNextClientId :: ClientId,
+          mgrWorldChan :: Chan (Client,RxPacket)
+        }
+
+data RxPacket
+    = ServerSelect Int
+    | ChatButton
+    | ClientAuthKey Word32
+    | ClientLanguage String
+    | ClientLoginSeed
+        { seed :: Word32,
+          verMajor :: Word32,
+          verMinor :: Word32,
+          verRev :: Word32,
+          verProto :: Word32 }
+    | ClientVersion String
+    | ClosedStatusGump Serial
+    | DisconnectNotification
+    | AccountLoginRequest
+        { acctUser :: String,
+          acctPass :: String }
+    | GameLoginRequest
+        { keyUsed :: Word32,
+          acctUser :: String,
+          acctPass :: String }
+    | GuildButton
+    | HelpButton
+    | IgnoredPacket
+    | CharacterLoginRequest
+        { charName :: String,
+          charClientFlag :: Word32,
+          charLoginCount :: Word32,
+          charSlotChosen :: Word32,
+          charClientIp :: Word32 }
+    | LookRequest Serial
+    | MoveRequest
+        { moveDir :: MobDirection,
+          moveSeq :: Word8,
+          moveKey :: Word32 }
+    | PaperDollRequest
+    -- | 7.0.3.0: The client pings the server roughly every minute, sequence
+    -- is always 0 in my testing
+    | Ping Word8
+    | PopupEntrySelection
+        { charId :: Word32,
+          entryId :: Word8 }
+    | QuestButton
+    | RequestStatus Serial
+    | RequestSkills Serial
+    | RequestWarMode WarMode
+    | ScreenSize Word16 Word16
+    | SpeechRequest SpeechType Hue SpeechFont Language T.Text
+    | UseRequest Serial
+    deriving Show
+
+data TxPacket
+    = CharacterListAfterDelete [CharacterListItem]
+    | CharacterList
+        { charListChars :: [CharacterListItem],
+          charListCities :: [StartingCity] }
+    | DrawContainer Serial Gump
+    | DrawMobile Mobile
+    | DrawPlayer Mobile
+    | ServerList
+        { servers :: [ServerListItem] }
+    | ServerRedirect
+        { redirectHostAddress :: HostAddress,
+          redirectHostPort :: Int,
+          encryptionKey :: Int }
+    | StatusBarInfo
+        { sbSerial :: Serial,
+          sbName :: String,
+          sbStats :: MobileStats,
+          sbTithe :: Word32, -- tithing points
+          sbCanChangeName :: Bool
+        }
+    | AccountLoginFailed
+        { reason :: AccountLoginFailReason }
+    | CharacterLoginComplete
+    | CharacterLoginConfirm
+        { loginMobile :: Mobile,
+          mapWidth :: Word16,
+          mapHeight :: Word16
+        }
+    | MoveAccept Word8 MobNotoriety
+    | OpenPaperDoll Serial String MobStatus
+    | Pong Word8
+    | SendUnicodeSpeech
+        { speechSerial :: Serial,
+          speechType :: SpeechType,
+          speechHue :: Hue,
+          speechFont :: SpeechFont,
+          speechLanguage :: Language,
+          speechName :: String,
+          speechText :: T.Text
+        }
+    | SetLightLevel Word8
+    | SetSeason
+        { season :: Season,
+          seasonPlaySound :: Bool
+        }
+    | SetWarMode WarMode
+    | SupportedFeatures Word32
+    deriving Show
+        
+data AccountLoginFailReason
+    = IncorrectNameOrPassword
+    | SomeoneIsAlreadyUsingAccount
+    | YourAccountHasBeenBlocked
+    | YourAccountCredentialsAreInvalid
+    | CommunicationProblem
+    deriving Show
+
+data ServerListItem
+    = ServerListItem
+        { name :: String,
+          percentFull :: Int,
+          timeZone :: Int,
+          serverListHostAddress :: HostAddress
+        }
+    deriving Show
+
+data CharacterListItem
+    = CharacterListItem
+        { charListName :: String,
+          charListPass :: String
+        }
+    deriving Show
+
+data StartingCity
+    = StartingCity
+        { cityName :: String,
+          cityArea :: String
+        }
+    deriving Show
+
+        

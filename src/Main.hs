@@ -45,7 +45,7 @@ loginServer = do
 
 gameServer = do
     svc <- listenOn (PortNumber 3593)
-    gameChan <- startGameManager
+    gameChan <- startGameManager emptyWorldState
     let state = newClientManagerState gameChan
     gameAcceptLoop state svc `finally` sClose svc
 
@@ -62,7 +62,7 @@ gameAcceptLoop state svc = do
 setupLogging :: IO ()
 setupLogging = do
     std <- verboseStreamHandler stdout DEBUG
-    updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel DEBUG)
+    updateGlobalLogger rootLoggerName (System.Log.Logger.setLevel INFO)
     -- updateGlobalLogger "RxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)
     -- updateGlobalLogger "TxPacket" (setHandlers [std] . System.Log.Logger.setLevel DEBUG)
     updateGlobalLogger rootLoggerName (setHandlers [std])

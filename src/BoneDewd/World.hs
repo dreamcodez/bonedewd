@@ -1,14 +1,18 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module BoneDewd.World (startLoginManager, startGameManager) where
 import BoneDewd.Client
+import BoneDewd.MapParse
 import BoneDewd.RxPacket
 import BoneDewd.TxPacket
 import BoneDewd.Types
+import Control.Applicative ((<$>))
 import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan (Chan, newChan, readChan, writeChan)
 import Control.Monad (forever)
 import Control.Monad.State
 import qualified Data.Map as M
+import Data.Maybe
+import Data.Word
 import Network.Socket (HostAddress, inet_addr)
 import System.IO.Unsafe
 import System.Log.Logger
@@ -34,7 +38,7 @@ startGameManager initState = do
     ch <- newChan
     let loop st = do
             (c,rx) <- readChan ch
-            newSt <- execStateT (handleGameRx rx c) st
+            (_,newSt) <- execStateT (handleGameRx rx) (c,st)
             loop newSt
     forkIO (loop initState)
     return ch
@@ -48,28 +52,29 @@ handleLoginRx ServerSelect{} Client{clientWrite,clientDisconnect} = do
     --clientDisconnect
 handleLoginRx _ _ = return ()
 
-handleGameRx :: RxPacket -> Client -> StateT WorldState IO ()
-handleGameRx CharacterLoginRequest{} (c @ Client{clientId, clientWrite}) =
-    do initPlayer (Player c me meStats)
-       lift $ clientWrite (CharacterLoginConfirm me 6144 4096)
-       lift $ clientWrite CharacterLoginComplete
-       lift $ clientWrite (DrawMobile me)
-       lift $ clientWrite (DrawMobile other)
-handleGameRx GameLoginRequest{} Client{clientWrite} =
-    do lift $ clientWrite (CharacterList chars cities)
-handleGameRx (Ping seqid) Client{clientWrite} =
-    do lift $ clientWrite (Pong seqid)
-handleGameRx (MoveRequest _ s _) Client{clientWrite} =
-    do lift $ clientWrite (MoveAccept s Innocent)
-handleGameRx PaperDollRequest Client{clientWrite} =
-    do lift $ clientWrite (OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
-handleGameRx (RequestWarMode wm) Client{clientWrite} =
-    do lift $ clientWrite (SetWarMode wm)
-handleGameRx (RequestStatus _) Client{clientWrite} =
-    do lift $ clientWrite meStatusBar
-handleGameRx (SpeechRequest t h f l txt) Client{clientWrite} =
-    do lift $ clientWrite (SendUnicodeSpeech mySerial t h f l myName txt)
-handleGameRx _ _ = return ()
+handleGameRx :: RxPacket -> StateT (Client,WorldState) IO ()
+handleGameRx CharacterLoginRequest{} =
+    do c <- getClient
+       initPlayer (Player c me meStats)
+       write (CharacterLoginConfirm me 6144 4096)
+       write CharacterLoginComplete
+       write (DrawMobile me)
+       write (DrawMobile other)
+handleGameRx GameLoginRequest{} =
+    do write (CharacterList chars cities)
+handleGameRx (Ping seqid) =
+    do write (Pong seqid)
+handleGameRx (MoveRequest newDir s _) =
+    do processMove newDir s
+handleGameRx PaperDollRequest =
+    do write (OpenPaperDoll mySerial "Fatty Bobo the Deusche" myStatus)
+handleGameRx (RequestWarMode wm) =
+    do write (SetWarMode wm)
+handleGameRx (RequestStatus _) =
+    do write meStatusBar
+handleGameRx (SpeechRequest t h f l txt) =
+    do write (SendUnicodeSpeech mySerial t h f l myName txt)
+handleGameRx _ = return ()
 {-
 handleRx :: Handle -> RxPacket -> IO ())
 handleRx peer CharacterLoginRequest{..} = do
@@ -142,13 +147,68 @@ meStats = MobileStats
     }
 
 -- initialize a new player, check to see if one already exists...
-initPlayer :: Player -> StateT WorldState IO ()
+initPlayer :: Player -> StateT (Client,WorldState) IO ()
 initPlayer (p @ Player{playerClient}) = do
-    modify (\(s @ WorldState{worldPlayers}) -> do
+    modify (\(c,s @ WorldState{worldPlayers}) -> do
                 let worldPlayers' = M.insert (clientId playerClient) p worldPlayers
                 if M.member (clientId playerClient) worldPlayers
                     then error ("initPlayer: player is already active:\n" ++ show p)
-                    else s{worldPlayers=worldPlayers'})
+                    else (c,s{worldPlayers=worldPlayers'}))
     lift $ noticeM "World" ("New player: " ++ show p)
 
---processMove :: MobDirectionClientId -> StateT WorldState IO ()
+processMove :: MobDirection -> Word8 -> StateT (Client,WorldState) IO ()
+processMove (MobDirection newDir walk_or_run) s = do
+    player <- fromJust <$> getPlayer
+    let (MobDirection prevDir _) = (mobDirection . playerMobile) player
+        (Loc prevX prevY _) = (mobLoc . playerMobile) player
+        cid = (clientId . playerClient) player
+    if newDir == prevDir
+        then do -- movement
+            let (newX,newY) = case newDir of
+                                  DirNorth -> (prevX, prevY-1)
+                                  DirRight -> (prevX+1, prevY-1)
+                                  DirEast  -> (prevX+1, prevY)
+                                  DirDown  -> (prevX+1, prevY+1)
+                                  DirSouth -> (prevX, prevY+1)
+                                  DirLeft  -> (prevX-1, prevY+1)
+                                  DirWest  -> (prevX-1, prevY)
+                                  DirUp    -> (prevX-1, prevY-1)
+            newZ <- lift $ getElevation (newX,newY)
+            let newLoc = Loc newX newY newZ
+            (c,world) <- get
+            let oldPlayers = worldPlayers world
+                oldPlayer = fromJust $ M.lookup cid oldPlayers
+                oldMobile = playerMobile oldPlayer
+                newMobile = oldMobile{mobLoc=newLoc,mobDirection=MobDirection newDir walk_or_run}
+                newPlayer = oldPlayer{playerMobile=newMobile}
+                newPlayers = M.insert cid newPlayer oldPlayers
+            put (c,world{worldPlayers=newPlayers})
+            write (MoveAccept s Innocent)
+            lift $ noticeM "World" ("Player Moved: " ++ show newLoc)
+        else do -- direction change only
+            (c,world) <- get
+            let oldPlayers = worldPlayers world
+                oldPlayer = fromJust $ M.lookup cid oldPlayers
+                oldMobile = playerMobile oldPlayer
+                newMobile = oldMobile{mobDirection=MobDirection newDir walk_or_run}
+                newPlayer = oldPlayer{playerMobile=newMobile}
+                newPlayers = M.insert cid newPlayer oldPlayers
+            put (c,world{worldPlayers=newPlayers})
+            write (MoveAccept s Innocent)
+            lift $ noticeM "World" ("Player Changed Direction: " ++ show newDir)
+
+getClient :: StateT (Client,WorldState) IO Client
+getClient = gets fst
+
+getWorld :: StateT (Client,WorldState) IO WorldState
+getWorld = gets snd
+
+getPlayer :: StateT (Client,WorldState) IO (Maybe Player)
+getPlayer = do
+    cid <- clientId <$> getClient
+    M.lookup cid . worldPlayers <$> getWorld
+
+write :: TxPacket -> StateT (Client,WorldState) IO ()
+write tx = do
+    c <- getClient
+    lift $ (clientWrite c) tx

@@ -23,7 +23,7 @@ data Direction
     | DirLeft
     | DirWest
     | DirUp
-    deriving Show
+    deriving (Eq,Show)
 
 instance Enum Direction where
     fromEnum DirNorth = 0x00

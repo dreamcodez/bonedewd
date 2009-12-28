@@ -4,3 +4,4 @@
 *.prof
 *.hp
 dist/*
+mul/*

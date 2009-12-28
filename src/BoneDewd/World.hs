@@ -151,3 +151,4 @@ initPlayer (p @ Player{playerClient}) = do
                     else s{worldPlayers=worldPlayers'})
     lift $ noticeM "World" ("New player: " ++ show p)
 
+--processMove :: MobDirectionClientId -> StateT WorldState IO ()

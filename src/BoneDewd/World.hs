@@ -7,7 +7,8 @@ import BoneDewd.TxPacket
 import BoneDewd.Types
 import Control.Applicative ((<$>))
 import Control.Concurrent (forkIO)
-import Control.Concurrent.Chan (Chan, newChan, readChan, writeChan)
+import Control.Concurrent.STM (atomically)
+import Control.Concurrent.STM.TChan (TChan, newTChan, readTChan, writeTChan)
 import Control.Monad (forever)
 import Control.Monad.State
 import qualified Data.Map as M
@@ -20,11 +21,11 @@ import System.Log.Logger
 
 
 -- TODO: add callback parameter which authorizes logins
-startLoginManager :: IO (Chan (Client,RxPacket))
+startLoginManager :: IO (TChan (Client,RxPacket))
 startLoginManager = do
-    ch <- newChan
+    ch <- atomically newTChan
     let loop = forever $ do
-            (c,rx) <- readChan ch
+            (c,rx) <- atomically (readTChan ch)
             handleLoginRx rx c
     forkIO loop
     return ch
@@ -33,11 +34,11 @@ startLoginManager = do
 -- the semantics of handler are that it should do the minimum amount of processing
 -- necessary to maintain atomicity and where possible offload long-running
 -- work to other threads
-startGameManager :: WorldState -> IO (Chan (Client,RxPacket))
+startGameManager :: WorldState -> IO (TChan (Client,RxPacket))
 startGameManager initState = do
-    ch <- newChan
+    ch <- atomically newTChan
     let loop st = do
-            (c,rx) <- readChan ch
+            (c,rx) <- atomically (readTChan ch)
             (_,newSt) <- execStateT (handleGameRx rx) (c,st)
             loop newSt
     forkIO (loop initState)

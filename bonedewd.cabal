@@ -36,6 +36,7 @@ library
                      hslogger,
                      mtl,
                      network,
+                     stm,
                      text
 
     ghc-options: -threaded -Wall -fno-ignore-asserts

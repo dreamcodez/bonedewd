@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, NamedFieldPuns, RecordWildCards #-}
 module BoneDewd.Types where
 import BoneDewd.Util
-import Control.Concurrent.Chan
+import Control.Concurrent.STM.TChan
 import qualified Data.ByteString as B
 import Data.Bits
 import Data.Int
@@ -234,7 +234,7 @@ data Event
 
 -- the world channel, send events here...
 data WorldChan
-    = WorldChan (Chan Event)
+    = WorldChan (TChan Event)
 
 instance Show WorldChan where
     show _ = "WorldChan"
@@ -308,7 +308,7 @@ data ClientManagerState
     = ClientManagerState
         { mgrClients :: M.Map ClientId Client,
           mgrNextClientId :: ClientId,
-          mgrWorldChan :: Chan (Client,RxPacket)
+          mgrWorldChan :: TChan (Client,RxPacket)
         }
 
 data RxPacket
